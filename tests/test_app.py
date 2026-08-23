@@ -133,6 +133,10 @@ def test_invariantes_do_layout(app_factory):
     assert ui._list_frame.grid.call_args.kwargs["sticky"] == "nsew"
     assert ui._monitor.grid.call_args.kwargs["sticky"] == "nsew"
 
+    # painel de edição na coluna da lista (não ocupa a largura toda)
+    gp = ui._edit_panel.grid.call_args.kwargs
+    assert gp["column"] == 0 and gp["sticky"] == "ew"
+
 
 def test_monitor_limitado_a_50_linhas(app_factory):
     from unittest.mock import MagicMock

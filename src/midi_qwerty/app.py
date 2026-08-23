@@ -113,10 +113,10 @@ class MidiQwertyApp(ctk.CTk):
     # ==================================================================
 
     def _build_ui(self) -> None:
-        # Layout fixo em duas colunas na área central:
-        #   esquerda = lista de teclas (rolável) | direita = monitor
-        # Só a linha central é flexível; painel de edição e barra do
-        # gatilho têm altura estável (nada "salta" ao popular a lista).
+        # Layout fixo: barra da porta no topo; corpo em DUAS colunas com o
+        # mesmo grid (uniform="cols"): lista/edição à esquerda (3) e
+        # monitor/controle da interceptação à direita (2). Só a linha do
+        # corpo é flexível — nada "salta" ao popular a lista.
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
@@ -137,14 +137,15 @@ class MidiQwertyApp(ctk.CTk):
         self._port_status = ctk.CTkLabel(top, text="● desconectado", text_color="#c0392b")
         self._port_status.grid(row=0, column=3, padx=(6, 12), pady=10)
 
-        # --- Linha 1: centro — lista (esq.) + monitor (dir.) ----------
-        center = ctk.CTkFrame(self, fg_color="transparent")
-        center.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=12, pady=6)
-        center.grid_columnconfigure(0, weight=3, uniform="cols")
-        center.grid_columnconfigure(1, weight=2, uniform="cols")
-        center.grid_rowconfigure(1, weight=1)
+        # --- Corpo em 2 colunas (uniform: lista==edição, monitor==controle) ---
+        body = ctk.CTkFrame(self, fg_color="transparent")
+        body.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=12, pady=6)
+        body.grid_columnconfigure(0, weight=3, uniform="cols")
+        body.grid_columnconfigure(1, weight=2, uniform="cols")
+        body.grid_rowconfigure(0, weight=1)
 
-        head = ctk.CTkFrame(center, fg_color="transparent")
+        # Linha A do corpo: lista (esq.) + monitor (dir.) ------------------
+        head = ctk.CTkFrame(body, fg_color="transparent")
         head.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 2))
         head.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(head, text="Teclas mapeadas (clique para editar):").grid(row=0, column=0, sticky="w")
@@ -155,12 +156,12 @@ class MidiQwertyApp(ctk.CTk):
         ctk.CTkButton(head, text="+ Adicionar tecla", width=140,
                       command=self._add_mapping).grid(row=0, column=3)
 
-        self._list_frame = ctk.CTkScrollableFrame(center)
+        self._list_frame = ctk.CTkScrollableFrame(body)
         self._list_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 6), pady=2)
         self._list_frame.grid_columnconfigure(0, weight=1)
 
-        right = ctk.CTkFrame(center, fg_color="transparent")
-        right.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(6, 0))
+        right = ctk.CTkFrame(body, fg_color="transparent")
+        right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
         right.grid_columnconfigure(0, weight=1)
         right.grid_rowconfigure(1, weight=1)
         mhead = ctk.CTkFrame(right, fg_color="transparent")
@@ -176,36 +177,39 @@ class MidiQwertyApp(ctk.CTk):
         self._monitor.grid(row=1, column=0, sticky="nsew")
         self._monitor.tag_config("err", foreground="#e74c3c")
 
-        # --- Linha 2: painel de edição (largura total) -----------------
-        self._edit_panel = ctk.CTkFrame(self)
-        self._edit_panel.grid(row=2, column=0, columnspan=2, sticky="ew", padx=12, pady=6)
+        # Linha B do corpo: edição da tecla (esq., mesma largura da lista)
+        # + controle liga/desliga da interceptação (dir., sob o monitor) ----
+        self._edit_panel = ctk.CTkFrame(body)
+        self._edit_panel.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=(8, 0))
         self._edit_panel.grid_columnconfigure(1, weight=1)
 
-        # --- Linha 3: gatilho + modo captura (altura fixa) --------------
-        bottom = ctk.CTkFrame(self)
-        bottom.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(6, 12))
-        bottom.grid_columnconfigure(0, weight=1)
+        side = ctk.CTkFrame(body)
+        side.grid(row=1, column=1, sticky="nsew", padx=(6, 0), pady=(8, 0))
 
-        trig = ctk.CTkFrame(bottom, fg_color="transparent")
-        trig.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 2))
-        ctk.CTkLabel(trig, text="Tecla que liga/desliga a interceptação:").pack(side="left")
-        self._btn_trig_cap = ctk.CTkButton(trig, text="Capturar tecla", width=110,
-                                           command=self._start_capture_toggle_key)
-        self._btn_trig_cap.pack(side="left", padx=8)
-        self._lbl_trig_val = ctk.CTkLabel(trig, text=self._cfg.toggle_key or "(desativado)",
-                                          text_color="#f1c40f")
-        self._lbl_trig_val.pack(side="left")
-        self._lbl_trig_hint = ctk.CTkLabel(trig, text="", text_color="#e67e22")
-        self._lbl_trig_hint.pack(side="left")
-
-        ctl = ctk.CTkFrame(bottom, fg_color="transparent")
-        ctl.grid(row=1, column=0, sticky="ew", padx=8, pady=4)
-        self._btn_capture = ctk.CTkButton(ctl, text="▶ Ativar interceptação agora",
+        ctk.CTkLabel(side, text="Controle da interceptação:",
+                     font=ctk.CTkFont(size=13, weight="bold"),
+                     text_color="#7f8c8d").grid(row=0, column=0, sticky="w",
+                                                padx=10, pady=(8, 0))
+        self._btn_capture = ctk.CTkButton(side, text="▶ Ativar interceptação agora",
                                           width=220, command=self._toggle_capture_clicked)
-        self._btn_capture.pack(side="left")
-        self._lbl_mode = ctk.CTkLabel(ctl, text="Interceptação: INATIVA",
+        self._btn_capture.grid(row=1, column=0, sticky="ew", padx=10, pady=4)
+        self._lbl_mode = ctk.CTkLabel(side, text="Interceptação: INATIVA",
                                       text_color="#95a5a6", font=ctk.CTkFont(weight="bold"))
-        self._lbl_mode.pack(side="left", padx=16)
+        self._lbl_mode.grid(row=2, column=0, sticky="w", padx=10)
+
+        ctk.CTkLabel(side, text="Tecla que liga/desliga:").grid(
+            row=3, column=0, sticky="w", padx=10, pady=(12, 0))
+        trigrow = ctk.CTkFrame(side, fg_color="transparent")
+        trigrow.grid(row=4, column=0, sticky="ew", padx=10, pady=2)
+        self._btn_trig_cap = ctk.CTkButton(trigrow, text="Capturar tecla", width=110,
+                                           command=self._start_capture_toggle_key)
+        self._btn_trig_cap.pack(side="left")
+        self._lbl_trig_val = ctk.CTkLabel(trigrow, text=self._cfg.toggle_key or "(desativado)",
+                                          text_color="#f1c40f")
+        self._lbl_trig_val.pack(side="left", padx=(8, 0))
+        self._lbl_trig_hint = ctk.CTkLabel(side, text="", text_color="#e67e22",
+                                           wraplength=300, justify="left")
+        self._lbl_trig_hint.grid(row=5, column=0, sticky="w", padx=10, pady=(0, 8))
 
         self._rebuild_list()
         self._rebuild_edit_panel()
@@ -393,7 +397,8 @@ class MidiQwertyApp(ctk.CTk):
                                          text_color="#f1c40f" if m.key else "#c0392b",
                                          font=ctk.CTkFont(weight="bold"))
         self._lbl_map_key.grid(row=1, column=1, sticky="w", padx=(130, 0))
-        self._lbl_map_hint = ctk.CTkLabel(p, text="", text_color="#e67e22")
+        self._lbl_map_hint = ctk.CTkLabel(p, text="", text_color="#e67e22",
+                                          wraplength=250, justify="left")
         self._lbl_map_hint.grid(row=1, column=2, columnspan=2, sticky="w", padx=(12, 6))
 
         # Tipo ----------------------------------------------------------
