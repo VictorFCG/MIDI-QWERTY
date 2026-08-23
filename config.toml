@@ -1,0 +1,23 @@
+# Arquivo gerado pelo midi_cc — pode ser editado à mão.
+
+[midi]
+port = "loopMIDI Port"
+
+[capture]
+toggle_key = "scroll lock"
+
+# CC alternado: F1 liga/desliga (ex: função de um plugin de guitarra)
+[[map]]
+key = "f1"
+type = "cc_toggle"
+channel = 0
+cc = 20
+on_value = 127
+off_value = 0
+
+# Program Change: F2 troca preset
+[[map]]
+key = "f2"
+type = "pc"
+channel = 0
+program = 3
