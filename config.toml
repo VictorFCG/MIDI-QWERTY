@@ -1,21 +1,23 @@
-# Arquivo gerado pelo midi_cc — pode ser editado à mão.
+# Arquivo gerado pelo MIDI-QWERTY — pode ser editado à mão.
 
 [midi]
-port = "loopMIDI_teste 2"
+port = "loopMIDI Port 2"
 
 [capture]
 toggle_key = "scroll lock"
 
 [[map]]
 key = "b"
-type = "note"
-channel = 0
-note = 60
-velocity = 100
+type = "cc_toggle"
+channel = 1
+cc = 3
+on_value = 127
+off_value = 0
 
 [[map]]
-key = "v"
-type = "note"
+key = ""
+type = "cc_toggle"
 channel = 0
-note = 67
-velocity = 100
+cc = 0
+on_value = 127
+off_value = 0
