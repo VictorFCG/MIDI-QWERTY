@@ -71,7 +71,7 @@ MIDI-QWERTY ──► loopMIDI ──► TRILHA MIDI ──Output──► inst�
    - **Input**: `loopMIDI Port`
    - **Output**: a instância do plugin (ex.: `Archetype: X 1`, `Helix Stadium Native`)
    - **Input Echo**: **ligado** — sem eco, o MIDI ao vivo não passa enquanto o transporte está parado.
-5. Modo captura **ATIVO** no app → entre no modo learn do plugin → aperte a tecla mapeada.
+5. Interceptação **ATIVA** no app → entre no modo learn do plugin → aperte a tecla mapeada.
 
 Quando estiver funcionando, salve como **Track Template** (`botão direito na trilha → Save as Track Template`) para reutilizar nos próximos projetos.
 
@@ -98,8 +98,8 @@ midi-qwerty --config C:\caminho\outro-mapa.toml
    - **🎹 Capturar** — clique e aperte a tecla física que quer usar (Esc cancela). Não precisa digitar nomes.
    - **Tipo de ação** e **Canal MIDI** (exibido como 1–16).
    - Campos dinâmicos conforme o tipo (ver tabela abaixo). Teclas duplicadas são bloqueadas.
-4. **Tecla gatilho do modo captura** — por padrão `Scroll Lock`. Aperte-a em qualquer lugar do sistema para ligar/desligar o modo captura.
-5. **Modo captura** — quando **ATIVO**, as teclas mapeadas são interceptadas e *engolidas* (não digitam nada na DAW). Quando INATIVO, o teclado volta ao normal.
+4. **Tecla da interceptação** — por padrão `Scroll Lock`. Aperte-a em qualquer lugar do sistema para ligar/desligar a interceptação.
+5. **Interceptação** — quando **ATIVA**, as teclas mapeadas são *engolidas* (não digitam nada na DAW). Quando INATIVA, o teclado volta ao normal.
 6. **Monitor de mensagens** — mostra em tempo real cada mensagem enviada, ex.:
 
    ```
@@ -160,7 +160,7 @@ off_value = 0              # cc_toggle
 |---|---|
 | Mensagens com `⚠ sem porta` no monitor | Porta não aberta: confira se o loopMIDI está rodando e se o nome bate; use `↻ Atualizar`. |
 | A porta não aparece no dropdown | Crie a porta no loopMIDI e clique em `↻ Atualizar`. |
-| Teclas mapeadas digitam letras na DAW | Modo captura está INATIVO — aperte a tecla gatilho (Scroll Lock) ou o botão na GUI. |
+| Teclas mapeadas digitam letras na DAW | A interceptação está INATIVA — aperte a tecla dela (Scroll Lock) ou o botão na GUI. |
 | Nada chega na DAW | Confira se a entrada MIDI `loopMIDI Port` está habilitada na trilha/plugin e se o nº de canal/CC coincide. Use o monitor para confirmar o que foi enviado. |
 | Hooks não funcionam com a DAW aberta | Se a DAW estiver rodando **como administrador**, rode o `midi-qwerty` como administrador também. |
 | Sonar: `undefined external error` ao habilitar entrada MIDI em Preferências → MIDI → Devices | Bug antigo do Windows (filtro `ksthunk` ausente na classe MEDIA do registro). Antes de mexer no registro, feche apps que seguram a porta (MIDI-QWERTY, standalone do plugin) e reabra o Sonar. Se persistir: `regedit` → chave `HKLM\SYSTEM\CurrentControlSet\Control\Class\{4D36E96C-E325-11CE-BFC1-08002BE10318}` (confira `(Default)` = *Sound, video and game controllers*) → crie um **Multi-String Value** chamado `UpperFilters` com valor `ksthunk` (case-sensitive; se já existir vazio, complete) → reinicie o Windows. Persistindo ainda: remova dispositivos MIDI "fantasmas" duplicados (Gerenciador de Dispositivos → Mostrar dispositivos ocultos). |
@@ -177,7 +177,7 @@ src/midi_qwerty/
 ├── messages.py   MsgDesc (mensagem MIDI abstrata) + formatação p/ monitor
 ├── mapper.py     estado por tecla (held/toggle) + anti auto-repeat
 ├── midi.py       porta MIDI-out (mido/rtmidi) e conversão MsgDesc→mido
-├── engine.py     thread própria: hooks, modo captura, fila de comandos/eventos
+├── engine.py     thread própria: hooks, interceptação, fila de comandos/eventos
 └── app.py        GUI CustomTkinter (auto-salva + aplica ao vivo)
 tests/test_logic.py   cobertura da lógica pura (config, mapper, mensagens)
 run.py                launcher p/ PyInstaller (imports absolutos)

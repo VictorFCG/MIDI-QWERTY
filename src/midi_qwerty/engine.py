@@ -202,12 +202,12 @@ class Engine:
             if active:
                 self._hook_mapped_locked()
                 self._capture_active = True
-                self.push_event("▶ Modo captura ATIVADO")
+                self.push_event("▶ Interceptação ATIVADA")
             else:
                 self._capture_active = False
                 self._unhook_all_locked()
                 self._send_locked(self._mapper.release_all())
-                self.push_event("■ Modo captura DESATIVADO")
+                self.push_event("■ Interceptação DESATIVADA")
 
     def _mapped_keys(self) -> list[Mapping]:
         seen: set[str] = set()

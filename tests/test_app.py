@@ -155,3 +155,48 @@ def test_tk_keysym_to_name():
     assert tk_keysym_to_name("kp_enter") == "enter"
     assert tk_keysym_to_name("F1") == "f1"
     assert tk_keysym_to_name("abnt_c1") == "abnt c1"  # fallback: underscore->espaço
+
+
+# ---------------------------------------------------------------------------
+# UX P0: exclusão confirmada, FocusOut na captura, título refletindo estado
+# ---------------------------------------------------------------------------
+
+TOML_EMPTY = '[midi]\nport = ""\n[capture]\ntoggle_key = "scroll lock"\n'
+
+
+def test_estado_vazio_da_lista(app_factory):
+    app_factory(TOML_EMPTY)
+    assert any("Nenhuma tecla mapeada" in t for t in list_widget_texts("CTkLabel"))
+
+
+def test_delete_exige_segundo_clique(app_factory):
+    ui = app_factory(TOML_1MAP)
+    ui._remove_mapping(0)
+    assert len(ui._cfg.mappings) == 1                      # 1º clique só confirma
+    cfg_btn = ui._delete_buttons[0]._mocks["configure"]
+    assert cfg_btn.call_args.kwargs["text"] == "Certeza?"
+    ui._remove_mapping(0)                                  # 2º clique apaga
+    assert len(ui._cfg.mappings) == 0
+    assert any("Nenhuma tecla mapeada" in t
+               for t in list_widget_texts("CTkLabel"))      # estado vazio aparece
+
+
+def test_focusout_cancela_captura(app_factory):
+    ui = app_factory(TOML_1MAP)
+    ui._selected = 0
+    ui._rebuild_edit_panel()
+    ui._start_capture_map_key()
+    assert ui._capturing is not None
+    ui._on_focus_out()          # usuário clicou em outra janela
+    assert ui._capturing is None
+
+
+def test_titulo_reflete_interceptacao(app_factory):
+    ui = app_factory(TOML_1MAP)
+    ui._engine._capture_active = True
+    ui._reflect_state()
+    assert "INTERCEPTANDO" in str(ui.title.call_args.args[0])
+
+    ui._engine._capture_active = False
+    ui._reflect_state()
+    assert "INTERCEPTANDO" not in str(ui.title.call_args.args[0])

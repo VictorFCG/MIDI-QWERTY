@@ -35,6 +35,7 @@ from .messages import describe_action
 
 ACCENT = "#1f6aa5"
 ROW_BG = "#2b2b2b"
+ROW_HOVER = "#383838"
 ROW_SEL_BG = "#1f4e79"
 
 TYPE_OPTIONS = [  # (rótulo exibido, kind)
@@ -43,6 +44,8 @@ TYPE_OPTIONS = [  # (rótulo exibido, kind)
     ("Nota (note on/off)", "note"),
     ("Program Change", "pc"),
 ]
+
+BASE_TITLE = "MIDI-QWERTY — teclado QWERTY → MIDI"
 
 _TK_KEYMAP = {
     "escape": "esc",
@@ -87,8 +90,11 @@ class MidiQwertyApp(ctk.CTk):
         self._selected: int | None = None      # índice selecionado na lista
         self._capturing: tuple | None = None   # ("mapping", idx) | ("toggle", None)
         self._monitor_count = 0
+        self._pending_delete: int | None = None
+        self._pending_delete_after = None
+        self._delete_buttons: dict[int, ctk.CTkButton] = {}
 
-        self.title("MIDI-QWERTY — teclado QWERTY → MIDI")
+        self.title(BASE_TITLE)
         self.geometry("1120x800")
         self.minsize(960, 700)
         ctk.set_appearance_mode("dark")
@@ -155,11 +161,18 @@ class MidiQwertyApp(ctk.CTk):
         right.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(6, 0))
         right.grid_columnconfigure(0, weight=1)
         right.grid_rowconfigure(1, weight=1)
-        mon_lbl = ctk.CTkLabel(right, text="Monitor de mensagens enviadas:", anchor="w")
-        mon_lbl.grid(row=0, column=0, sticky="ew", pady=(0, 2))
+        mhead = ctk.CTkFrame(right, fg_color="transparent")
+        mhead.grid(row=0, column=0, sticky="ew", pady=(0, 2))
+        mhead.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(mhead, text="Monitor de mensagens enviadas:",
+                     anchor="w").grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(mhead, text="Limpar", width=70, height=24,
+                      fg_color="#5d6d7e", hover_color="#717d7e",
+                      command=self._clear_monitor).grid(row=0, column=1, padx=(6, 0))
         self._monitor = ctk.CTkTextbox(right, state="disabled", wrap="none",
                                        font=ctk.CTkFont(family="Consolas", size=13))
         self._monitor.grid(row=1, column=0, sticky="nsew")
+        self._monitor.tag_config("err", foreground="#e74c3c")
 
         # --- Linha 2: painel de edição (largura total) -----------------
         self._edit_panel = ctk.CTkFrame(self)
@@ -173,7 +186,7 @@ class MidiQwertyApp(ctk.CTk):
 
         trig = ctk.CTkFrame(bottom, fg_color="transparent")
         trig.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 2))
-        ctk.CTkLabel(trig, text="Tecla gatilho do modo captura:").pack(side="left")
+        ctk.CTkLabel(trig, text="Tecla que liga/desliga a interceptação:").pack(side="left")
         self._btn_trig_cap = ctk.CTkButton(trig, text="Capturar tecla", width=110,
                                            command=self._start_capture_toggle_key)
         self._btn_trig_cap.pack(side="left", padx=8)
@@ -185,10 +198,10 @@ class MidiQwertyApp(ctk.CTk):
 
         ctl = ctk.CTkFrame(bottom, fg_color="transparent")
         ctl.grid(row=1, column=0, sticky="ew", padx=8, pady=4)
-        self._btn_capture = ctk.CTkButton(ctl, text="▶ Ativar modo captura agora",
+        self._btn_capture = ctk.CTkButton(ctl, text="▶ Ativar interceptação agora",
                                           width=220, command=self._toggle_capture_clicked)
         self._btn_capture.pack(side="left")
-        self._lbl_mode = ctk.CTkLabel(ctl, text="Modo captura: INATIVO",
+        self._lbl_mode = ctk.CTkLabel(ctl, text="Interceptação: INATIVA",
                                       text_color="#95a5a6", font=ctk.CTkFont(weight="bold"))
         self._lbl_mode.pack(side="left", padx=16)
 
@@ -211,10 +224,29 @@ class MidiQwertyApp(ctk.CTk):
             row.grid(row=i, column=0, sticky="ew", pady=2, padx=2)
             row.grid_columnconfigure(0, weight=1)
 
+    def _rebuild_list(self) -> None:
+        self._cancel_pending_delete()
+        for w in self._list_frame.winfo_children():
+            w.destroy()
+        if not self._cfg.mappings:
+            ctk.CTkLabel(self._list_frame,
+                         text='Nenhuma tecla mapeada — use “+ Adicionar tecla”.',
+                         text_color="#7f8c8d").grid(row=0, column=0, pady=20)
+            return
+        self._delete_buttons: dict[int, ctk.CTkButton] = {}
+        for i, m in enumerate(self._cfg.mappings):
+            key_disp = m.key.upper() if m.key else "(defina a tecla)"
+            summary = f"{key_disp}  →  {describe_action(m.action)}"
+            selected = (i == self._selected)
+
+            row = ctk.CTkFrame(self._list_frame, fg_color="transparent")
+            row.grid(row=i, column=0, sticky="ew", pady=2, padx=2)
+            row.grid_columnconfigure(0, weight=1)
+
             btn = ctk.CTkButton(
                 row, text=summary, anchor="w", height=30,
                 fg_color=ROW_SEL_BG if selected else ROW_BG,
-                hover_color=ROW_SEL_BG,
+                hover_color=ROW_SEL_BG if selected else ROW_HOVER,
                 command=lambda idx=i: self._select_mapping(idx),
             )
             btn.grid(row=0, column=0, sticky="ew")
@@ -223,6 +255,51 @@ class MidiQwertyApp(ctk.CTk):
                                  fg_color="#7b241c", hover_color="#943126",
                                  command=lambda idx=i: self._remove_mapping(idx))
             dele.grid(row=0, column=1, padx=(6, 0))
+            self._delete_buttons[i] = dele
+
+    # ------------------------------------------------------------------
+    # Exclusão em dois cliques (✕ vira "Certeza?"; segundo clique apaga)
+    # ------------------------------------------------------------------
+
+    def _remove_mapping(self, idx: int) -> None:
+        if not (0 <= idx < len(self._cfg.mappings)):
+            return
+        self.focus_set()  # evita Espaço/Enter reativar o botão ✕ focado
+        if self._pending_delete != idx:
+            self._cancel_pending_delete()
+            self._pending_delete = idx
+            btn = self._delete_buttons.get(idx)
+            if btn is not None:
+                btn.configure(text="Certeza?", width=76, fg_color="#c0392b",
+                              hover_color="#e74c3c")
+            self._pending_delete_after = self.after(2500, self._cancel_pending_delete)
+            return
+
+        self._cancel_pending_delete()
+        del self._cfg.mappings[idx]
+        if self._selected == idx:
+            self._selected = None
+            self._rebuild_edit_panel()
+        elif self._selected is not None and self._selected > idx:
+            self._selected -= 1
+        self._commit(rebuild_list=True)
+
+    def _cancel_pending_delete(self) -> None:
+        if self._pending_delete_after is not None:
+            try:
+                self.after_cancel(self._pending_delete_after)
+            except Exception:
+                pass
+            self._pending_delete_after = None
+        if getattr(self, "_pending_delete", None) is not None:
+            btn = self._delete_buttons.get(self._pending_delete)
+            if btn is not None:
+                try:
+                    btn.configure(text="✕", width=30, fg_color="#7b241c",
+                                  hover_color="#943126")
+                except Exception:
+                    pass  # botão destruído por um rebuild
+        self._pending_delete = None
 
     def _select_mapping(self, idx: int) -> None:
         self._selected = idx
@@ -242,18 +319,6 @@ class MidiQwertyApp(ctk.CTk):
             self._commit(rebuild_list=True)
         self._rebuild_edit_panel()
         self._start_capture_map_key()  # já entra em modo captura
-
-    def _remove_mapping(self, idx: int) -> None:
-        if not (0 <= idx < len(self._cfg.mappings)):
-            return
-        self.focus_set()  # evita Espaço/Enter reativar o botão ✕ focado
-        del self._cfg.mappings[idx]
-        if self._selected == idx:
-            self._selected = None
-            self._rebuild_edit_panel()
-        elif self._selected is not None and self._selected > idx:
-            self._selected -= 1
-        self._commit(rebuild_list=True)
 
     # ==================================================================
     # Painel de edição
@@ -413,6 +478,7 @@ class MidiQwertyApp(ctk.CTk):
         self._lbl_map_hint.configure(text="aperte uma tecla — Esc cancela")
         self.focus_set()  # tira o foco de botões/entries (Espaço não dispara nada)
         self.bind("<KeyPress>", self._on_capture_keypress)
+        self.bind("<FocusOut>", self._on_focus_out)
 
     def _start_capture_toggle_key(self) -> None:
         self._capturing = ("toggle", None)
@@ -420,13 +486,22 @@ class MidiQwertyApp(ctk.CTk):
         self._lbl_trig_hint.configure(text="aperte uma tecla — Esc cancela")
         self.focus_set()
         self.bind("<KeyPress>", self._on_capture_keypress)
+        self.bind("<FocusOut>", self._on_focus_out)
+
+    def _on_focus_out(self, _event=None) -> str:
+        # Usuário clicou em outra janela no meio da captura: não deixa o
+        # botão pendurado em "Capturando…" para sempre.
+        if self._capturing is not None:
+            self._cancel_capture()
+        return ""
 
     def _cancel_capture(self) -> None:
         self._capturing = None
-        try:
-            self.unbind("<KeyPress>")
-        except Exception:
-            pass
+        for seq in ("<KeyPress>", "<FocusOut>"):
+            try:
+                self.unbind(seq)
+            except Exception:
+                pass
         self._btn_map_key.configure(text="🎹 Capturar", fg_color="transparent")
         self._btn_trig_cap.configure(text="Capturar tecla", fg_color="transparent")
         try:
@@ -452,7 +527,7 @@ class MidiQwertyApp(ctk.CTk):
         if target == "mapping":
             if normalize_key(self._cfg.toggle_key) == name:
                 self._set_warn(
-                    f"'{name.upper()}' é a tecla gatilho do modo captura — escolha outra."
+                    f"'{name.upper()}' é a tecla da interceptação — escolha outra."
                 )
                 return "break"
             other = self._cfg.has_key(name, exclude_index=idx)
@@ -577,29 +652,39 @@ class MidiQwertyApp(ctk.CTk):
         if new_events:
             self._monitor.configure(state="normal")
             for ev in new_events:
-                self._monitor.insert("1.0", ev + "\n")
+                if "⚠" in ev or "ERRO" in ev:
+                    self._monitor.insert("1.0", ev + "\n", "err")
+                else:
+                    self._monitor.insert("1.0", ev + "\n")
             self._trim_monitor()
             self._monitor.configure(state="disabled")
 
-        # Status do modo captura
+        self._reflect_state()
+        self.after(150, self._poll)
+
+    def _reflect_state(self) -> None:
+        """Estado do modo interceptação e da porta — título, rótulos, botão."""
         active = self._engine.capture_active()
+        self.title(f"{BASE_TITLE}  [INTERCEPTANDO]" if active else BASE_TITLE)
         self._lbl_mode.configure(
-            text=f"Modo captura: {'ATIVO' if active else 'INATIVO'}",
+            text=f"Interceptação: {'ATIVA' if active else 'INATIVA'}",
             text_color="#2ecc71" if active else "#95a5a6",
         )
         self._btn_capture.configure(
-            text=("■ Desativar modo captura" if active else "▶ Ativar modo captura agora"),
+            text=("■ Desativar interceptação" if active else "▶ Ativar interceptação agora"),
             fg_color="#7b241c" if active else ACCENT,
         )
 
-        # Status da porta
         pname = self._engine.port_name()
         if pname is None:
             self._port_status.configure(text="● desconectado", text_color="#c0392b")
         else:
             self._port_status.configure(text=f"● {pname}", text_color="#2ecc71")
 
-        self.after(150, self._poll)
+    def _clear_monitor(self) -> None:
+        self._monitor.configure(state="normal")
+        self._monitor.delete("1.0", "end")
+        self._monitor.configure(state="disabled")
 
     def _trim_monitor(self) -> None:
         lines = int(self._monitor.index("end-1c").split(".")[0])
