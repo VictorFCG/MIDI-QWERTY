@@ -133,9 +133,11 @@ def test_invariantes_do_layout(app_factory):
     assert ui._list_frame.grid.call_args.kwargs["sticky"] == "nsew"
     assert ui._monitor.grid.call_args.kwargs["sticky"] == "nsew"
 
-    # painel de edição na coluna da lista (não ocupa a largura toda)
+    # painel de edição na coluna da lista, em linha PRÓPRIA (não sobrepõe!)
     gp = ui._edit_panel.grid.call_args.kwargs
-    assert gp["column"] == 0 and gp["sticky"] == "ew"
+    gl = ui._list_frame.grid.call_args.kwargs
+    assert (gp["row"], gp["column"]) == (2, 0) and gp["sticky"] == "ew"
+    assert (gl["row"], gl["column"]) == (1, 0)
 
     # a linha flexível do corpo é a da LISTA (row 1) — nunca a dos cabeçalhos
     rc = {c.args[0]: c.kwargs.get("weight") for c in ui._body.grid_rowconfigure.call_args_list}

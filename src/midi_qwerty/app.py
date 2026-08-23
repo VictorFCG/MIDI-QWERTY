@@ -146,7 +146,7 @@ class MidiQwertyApp(ctk.CTk):
         body.grid_rowconfigure(1, weight=1)
         self._body = body
 
-        # Linha A do corpo: lista (esq.) + monitor (dir.) ------------------
+        # Coluna ESQUERDA (3): cabeçalho / LISTA (flexível) / edição
         head = ctk.CTkFrame(body, fg_color="transparent")
         head.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 2))
         head.grid_columnconfigure(0, weight=1)
@@ -162,10 +162,16 @@ class MidiQwertyApp(ctk.CTk):
         self._list_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 6), pady=2)
         self._list_frame.grid_columnconfigure(0, weight=1)
 
+        self._edit_panel = ctk.CTkFrame(body)
+        self._edit_panel.grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(8, 0))
+        self._edit_panel.grid_columnconfigure(1, weight=1)
+
+        # Trilha DIREITA (2): monitor no alto + controle da interceptação
+        # embaixo — um único frame com rowspan sobre as 3 linhas da esquerda
         right = ctk.CTkFrame(body, fg_color="transparent")
-        right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        right.grid(row=0, column=1, rowspan=3, sticky="nsew", padx=(6, 0))
         right.grid_columnconfigure(0, weight=1)
-        right.grid_rowconfigure(1, weight=1)
+        right.grid_rowconfigure(1, weight=1)  # monitor absorve a sobra vertical
         mhead = ctk.CTkFrame(right, fg_color="transparent")
         mhead.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         mhead.grid_columnconfigure(0, weight=1)
@@ -179,39 +185,29 @@ class MidiQwertyApp(ctk.CTk):
         self._monitor.grid(row=1, column=0, sticky="nsew")
         self._monitor.tag_config("err", foreground="#e74c3c")
 
-        # Linha B do corpo: edição da tecla (esq., mesma largura da lista)
-        # + controle liga/desliga da interceptação (dir., sob o monitor) ----
-        self._edit_panel = ctk.CTkFrame(body)
-        self._edit_panel.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=(8, 0))
-        self._edit_panel.grid_columnconfigure(1, weight=1)
-
-        side = ctk.CTkFrame(body)
-        side.grid(row=1, column=1, sticky="nsew", padx=(6, 0), pady=(8, 0))
-
-        ctk.CTkLabel(side, text="Controle da interceptação:",
+        ctk.CTkLabel(right, text="Controle da interceptação:",
                      font=ctk.CTkFont(size=13, weight="bold"),
-                     text_color="#7f8c8d").grid(row=0, column=0, sticky="w",
-                                                padx=10, pady=(8, 0))
-        self._btn_capture = ctk.CTkButton(side, text="▶ Ativar interceptação agora",
+                     text_color="#7f8c8d").grid(row=2, column=0, sticky="w", pady=(14, 0))
+        self._btn_capture = ctk.CTkButton(right, text="▶ Ativar interceptação agora",
                                           width=220, command=self._toggle_capture_clicked)
-        self._btn_capture.grid(row=1, column=0, sticky="ew", padx=10, pady=4)
-        self._lbl_mode = ctk.CTkLabel(side, text="Interceptação: INATIVA",
+        self._btn_capture.grid(row=3, column=0, sticky="ew", pady=4)
+        self._lbl_mode = ctk.CTkLabel(right, text="Interceptação: INATIVA",
                                       text_color="#95a5a6", font=ctk.CTkFont(weight="bold"))
-        self._lbl_mode.grid(row=2, column=0, sticky="w", padx=10)
+        self._lbl_mode.grid(row=4, column=0, sticky="w")
 
-        ctk.CTkLabel(side, text="Tecla que liga/desliga:").grid(
-            row=3, column=0, sticky="w", padx=10, pady=(12, 0))
-        trigrow = ctk.CTkFrame(side, fg_color="transparent")
-        trigrow.grid(row=4, column=0, sticky="ew", padx=10, pady=2)
+        ctk.CTkLabel(right, text="Tecla que liga/desliga:").grid(
+            row=5, column=0, sticky="w", pady=(12, 0))
+        trigrow = ctk.CTkFrame(right, fg_color="transparent")
+        trigrow.grid(row=6, column=0, sticky="ew", pady=2)
         self._btn_trig_cap = ctk.CTkButton(trigrow, text="Capturar tecla", width=110,
                                            command=self._start_capture_toggle_key)
         self._btn_trig_cap.pack(side="left")
         self._lbl_trig_val = ctk.CTkLabel(trigrow, text=self._cfg.toggle_key or "(desativado)",
                                           text_color="#f1c40f")
         self._lbl_trig_val.pack(side="left", padx=(8, 0))
-        self._lbl_trig_hint = ctk.CTkLabel(side, text="", text_color="#e67e22",
+        self._lbl_trig_hint = ctk.CTkLabel(right, text="", text_color="#e67e22",
                                            wraplength=300, justify="left")
-        self._lbl_trig_hint.grid(row=5, column=0, sticky="w", padx=10, pady=(0, 8))
+        self._lbl_trig_hint.grid(row=7, column=0, sticky="w", pady=(0, 2))
 
         self._rebuild_list()
         self._rebuild_edit_panel()
