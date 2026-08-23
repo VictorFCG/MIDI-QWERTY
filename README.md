@@ -201,7 +201,9 @@ Roadmap: perfis múltiplos com hot-swap; investigar a fundo o `undefined externa
 
 ## Versão executável/portável
 
-Gerar um `MIDI-QWERTY.exe` **portável** (não requer Python instalado) via PyInstaller. Os arquivos de build já estão versionados (`run.py`, `MIDI_QWERTY.spec`, `build_exe.bat`) — o build roda no Windows (PyInstaller não faz cross-build a partir do WSL/Linux):
+**Status: implementada e validada em uso real** — `dist\MIDI-QWERTY.exe` funcionando com hooks, porta MIDI, auto-save e exportar/importar.
+
+O exe é gerado via PyInstaller; os arquivos de build estão versionados (`run.py`, `MIDI_QWERTY.spec`, `build_exe.bat`). O build roda no Windows (PyInstaller não faz cross-build a partir do WSL/Linux) — para regenerar após mudanças no código:
 
 ```powershell
 cd caminho\do\projeto
