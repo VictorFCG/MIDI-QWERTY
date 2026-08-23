@@ -489,11 +489,22 @@ class MidiQwertyApp(ctk.CTk):
         self.bind("<FocusOut>", self._on_focus_out)
 
     def _on_focus_out(self, _event=None) -> str:
-        # Usuário clicou em outra janela no meio da captura: não deixa o
-        # botão pendurado em "Capturando…" para sempre.
-        if self._capturing is not None:
-            self._cancel_capture()
+        # O bind no toplevel também borbuja FocusOut de transições INTERNAS
+        # (ex.: o próprio focus_set disparado pelo clique no botão). Decide
+        # depois que o foco assenta: só desiste se nenhum widget do app ficou
+        # com ele — i.e., o usuário foi para outra janela de verdade.
+        self.after_idle(self._maybe_cancel_capture)
         return ""
+
+    def _maybe_cancel_capture(self) -> None:
+        if self._capturing is None:
+            return
+        try:
+            focused = self.focus_get()
+        except Exception:
+            focused = None
+        if focused is None:
+            self._cancel_capture()
 
     def _cancel_capture(self) -> None:
         self._capturing = None
@@ -513,6 +524,9 @@ class MidiQwertyApp(ctk.CTk):
     def _on_capture_keypress(self, event) -> str:
         if self._capturing is None:
             return ""
+        widget = str(getattr(event, "widget", "") or "")
+        if "entry" in widget.lower():
+            return ""  # usuário digitando num campo — não é captura
         ks = event.keysym
         if ks in ("Shift_L", "Shift_R", "Control_L", "Control_R",
                   "Alt_L", "Alt_R", "Win_L", "Win_R"):

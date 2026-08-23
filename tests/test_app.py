@@ -187,8 +187,39 @@ def test_focusout_cancela_captura(app_factory):
     ui._rebuild_edit_panel()
     ui._start_capture_map_key()
     assert ui._capturing is not None
-    ui._on_focus_out()          # usuário clicou em outra janela
+    ui._mocks["focus_get"] = lambda: None       # foco foi p/ outra janela
+    ui._on_focus_out()
+    assert ui.after_idle.call_args.args[0] is not None
+    ui.after_idle.call_args.args[0]()           # decide com foco assentado
     assert ui._capturing is None
+
+
+def test_focusout_interno_mantem_captura(app_factory):
+    """Cenário do bug: clicar '+ Adicionar' dispara FocusOut do botão
+    clicado (transição interna) logo após o bind — não pode cancelar."""
+    ui = app_factory(TOML_1MAP)
+    ui._add_mapping()                            # já entra em captura
+    assert ui._capturing is not None
+    ui._mocks["focus_get"] = lambda: ui          # foco no próprio toplevel
+    ui._on_focus_out()
+    ui.after_idle.call_args.args[0]()
+    assert ui._capturing is not None             # continua capturando
+
+
+def test_tecla_solta_em_entry_nao_vira_binding(app_factory):
+    ui = app_factory(TOML_1MAP)
+    ui._selected = 0
+    ui._rebuild_edit_panel()
+    ui._start_capture_map_key()
+
+    ev = Ev("1")
+    ev.widget = ".!ctkframe.!ctkentry"           # evento veio de um campo
+    assert ui._on_capture_keypress(ev) == ""
+    assert ui._cfg.mappings[0].key == "f1"       # nada atribuído
+
+    ev2 = Ev("q")
+    assert ui._on_capture_keypress(ev2) == "break"
+    assert ui._cfg.mappings[0].key == "q"
 
 
 def test_titulo_reflete_interceptacao(app_factory):
