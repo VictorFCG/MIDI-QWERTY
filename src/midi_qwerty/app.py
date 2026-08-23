@@ -28,6 +28,7 @@ from .config import (
     Mapping,
     NoteAction,
     PCAction,
+    normalize_key,
 )
 from .engine import Engine
 from .messages import describe_action
@@ -344,7 +345,7 @@ class MidiQwertyApp(ctk.CTk):
         entry.insert(0, str(value))
         entry.bind("<FocusOut>", lambda _e, n=name: self._commit_from_panel())
         entry.bind("<Return>", lambda _e, n=name: self._commit_from_panel())
-        entry.grid(row=row, column=col + 1 if col == 0 else col + 1, sticky="w", pady=6)
+        entry.grid(row=row, column=col + 1, sticky="w", pady=6)
         self._entries[name] = entry
 
     def _read_panel_into(self) -> bool:
@@ -449,6 +450,11 @@ class MidiQwertyApp(ctk.CTk):
         self._cancel_capture()
 
         if target == "mapping":
+            if normalize_key(self._cfg.toggle_key) == name:
+                self._set_warn(
+                    f"'{name.upper()}' é a tecla gatilho do modo captura — escolha outra."
+                )
+                return "break"
             other = self._cfg.has_key(name, exclude_index=idx)
             if other:
                 self._set_warn(f"A tecla '{name.upper()}' já está mapeada.")
@@ -458,6 +464,12 @@ class MidiQwertyApp(ctk.CTk):
             self._cfg.mappings[idx] = Mapping(key=name, action=old.action)
             self._lbl_map_key.configure(text=name.upper(), text_color="#f1c40f")
         else:
+            if self._cfg.has_key(name):
+                self._set_warn(
+                    f"'{name.upper()}' já está mapeada a uma tecla — o gatilho precisa ser exclusivo."
+                )
+                return "break"
+            self._set_warn("")
             self._cfg.toggle_key = name
             self._lbl_trig_val.configure(text=name, text_color="#f1c40f")
 
@@ -527,6 +539,7 @@ class MidiQwertyApp(ctk.CTk):
             mb.showerror("Erro ao exportar", str(e), parent=self)
 
     def _import(self) -> None:
+        self._cancel_capture()  # captura pendente apontaria para índice do arquivo antigo
         if not mb.askyesno(
             "Importar mapeamento",
             "Importar vai SUBSTITUIR o mapeamento atual (o arquivo importado não é alterado).\nContinuar?",
@@ -590,8 +603,8 @@ class MidiQwertyApp(ctk.CTk):
 
     def _trim_monitor(self) -> None:
         lines = int(self._monitor.index("end-1c").split(".")[0])
-        if lines > 300:
-            self._monitor.delete(f"{lines}.0", "end")
+        if lines > 50:
+            self._monitor.delete("51.0", "end")
 
     # ==================================================================
     # Ciclo de vida

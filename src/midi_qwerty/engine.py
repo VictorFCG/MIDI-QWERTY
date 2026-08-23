@@ -172,9 +172,12 @@ class Engine:
             self._toggle_hk = None
         key = normalize_key(key)
         if key:
-            self._toggle_hk = keyboard.add_hotkey(
-                key, lambda: self.toggle_capture(), suppress=False, trigger_on_release=False
-            )
+            try:
+                self._toggle_hk = keyboard.add_hotkey(
+                    key, lambda: self.toggle_capture(), suppress=False, trigger_on_release=False
+                )
+            except Exception as e:
+                self.push_event(f"ERRO ao registrar tecla gatilho '{key}': {e}")
 
     def _open_port(self, name: str) -> None:
         try:
@@ -214,8 +217,12 @@ class Engine:
 
     def _hook_mapped_locked(self) -> None:
         self._unhook_all_locked()
+        tkey = normalize_key(self._cfg.toggle_key)
         for m in self._mapped_keys():
             k = normalize_key(m.key)
+            if tkey and k == tkey:
+                # nunca engolir a tecla gatilho: mataria a alternância do modo
+                continue
             try:
                 keyboard.hook_key(k, self._make_cb(k), suppress=True)
                 self._hooked.add(k)

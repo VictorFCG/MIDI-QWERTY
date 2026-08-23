@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import json
 import os
 import tomllib
 from dataclasses import dataclass, field
@@ -168,7 +169,6 @@ def validate(cfg: AppConfig) -> None:
 # ---------------------------------------------------------------------------
 
 def _toml_str(s: str) -> str:
-    import json
     return json.dumps(s, ensure_ascii=False)
 
 
@@ -241,6 +241,8 @@ def save(path: str, cfg: AppConfig) -> None:
     tmp = os.path.join(directory, f".{os.path.basename(path)}.tmp")
     with open(tmp, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, path)
 
 

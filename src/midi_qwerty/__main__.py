@@ -35,7 +35,21 @@ def _load_or_create(path: str):
         save(path, cfg)
         return cfg
     except ConfigError as e:
-        print(f"ERRO: {path} inválido:\n  {e}\nCorrija o arquivo ou apague-o para gerar um novo.", file=sys.stderr)
+        msg = (f"Arquivo de configuração inválido:\n  {path}\n\n{e}\n\n"
+               "Corrija o arquivo ou apague-o para gerar um novo.")
+        if getattr(sys, "frozen", False):
+            try:
+                import tkinter as tk
+                from tkinter import messagebox
+
+                root = tk.Tk()
+                root.withdraw()
+                messagebox.showerror("MIDI-QWERTY — configuração inválida", msg)
+                root.destroy()
+            except Exception:
+                print(f"ERRO: {msg}", file=sys.stderr)
+        else:
+            print(f"ERRO: {msg}", file=sys.stderr)
         raise SystemExit(1)
 
 
