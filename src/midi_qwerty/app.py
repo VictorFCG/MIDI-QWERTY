@@ -430,22 +430,22 @@ class MidiQwertyApp(ctk.CTk):
         a = m.action
         r = 4
         if a.kind in ("cc_toggle", "cc_momentary"):
-            self._num_field(r, 0, "Número do CC:", "cc", a.cc)
+            self._num_field(r, 0, "CC:", "cc", a.cc)
             r += 1
             if a.kind == "cc_toggle":
                 self._num_field(r, 0, "Valor ON:", "on_value", a.on_value)
                 self._num_field(r, 2, "Valor OFF:", "off_value", a.off_value)
                 r += 1
             else:
-                self._num_field(r, 0, "Valor ao pressionar:", "press_value", a.press_value)
-                self._num_field(r, 2, "Valor ao soltar:", "release_value", a.release_value)
+                self._num_field(r, 0, "Ao pressionar:", "press_value", a.press_value)
+                self._num_field(r, 2, "Ao soltar:", "release_value", a.release_value)
                 r += 1
         elif a.kind == "note":
-            self._num_field(r, 0, "Número da nota (0–127):", "note", a.note)
-            self._num_field(r, 2, "Velocidade (1–127):", "velocity", a.velocity)
+            self._num_field(r, 0, "Nota:", "note", a.note)
+            self._num_field(r, 2, "Velocidade:", "velocity", a.velocity)
             r += 1
         elif a.kind == "pc":
-            self._num_field(r, 0, "Número do programa (0–127):", "program", a.program)
+            self._num_field(r, 0, "Programa:", "program", a.program)
             r += 1
 
         self._warn_lbl = ctk.CTkLabel(p, text="", text_color="#e67e22")
