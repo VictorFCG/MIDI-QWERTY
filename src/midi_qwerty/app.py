@@ -113,10 +113,10 @@ class MidiQwertyApp(ctk.CTk):
     # ==================================================================
 
     def _build_ui(self) -> None:
-        # Layout fixo: barra da porta no topo; corpo em DUAS colunas com o
-        # mesmo grid (uniform="cols"): lista/edição à esquerda (3) e
-        # monitor/controle da interceptação à direita (2). Só a linha do
-        # corpo é flexível — nada "salta" ao popular a lista.
+        # Layout fixo: barra da porta no topo; corpo em DUAS colunas iguais
+        # (uniform="cols"): lista/edição à esquerda e monitor/controle da
+        # interceptação à direita. Só a linha da lista é flexível — nada
+        # "salta" ao popular a lista.
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
@@ -140,8 +140,8 @@ class MidiQwertyApp(ctk.CTk):
         # --- Corpo em 2 colunas (uniform: lista==edição, monitor==controle) ---
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=12, pady=6)
-        body.grid_columnconfigure(0, weight=3, uniform="cols")
-        body.grid_columnconfigure(1, weight=2, uniform="cols")
+        body.grid_columnconfigure(0, weight=1, uniform="cols")
+        body.grid_columnconfigure(1, weight=1, uniform="cols")
         # A LINHA FLEXÍVEL é a 1 (lista/edição/controle); a 0 tem só cabeçalhos
         body.grid_rowconfigure(1, weight=1)
         self._body = body

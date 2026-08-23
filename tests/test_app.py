@@ -143,6 +143,11 @@ def test_invariantes_do_layout(app_factory):
     rc = {c.args[0]: c.kwargs.get("weight") for c in ui._body.grid_rowconfigure.call_args_list}
     assert rc.get(1) == 1 and rc.get(0, 0) in (None, 0)
 
+    # colunas do corpo em partes iguais (50/50)
+    cc = {c.args[0]: c.kwargs.get("weight")
+          for c in ui._body.grid_columnconfigure.call_args_list}
+    assert cc.get(0) == 1 and cc.get(1) == 1
+
 
 def test_monitor_limitado_a_50_linhas(app_factory):
     from unittest.mock import MagicMock
