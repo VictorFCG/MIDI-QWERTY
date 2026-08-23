@@ -137,12 +137,18 @@ class Engine:
     # ==================================================================
 
     def _apply(self, new_cfg: AppConfig) -> None:
+        # Decisões de estado sob o lock; a abertura da porta fica FORA dele —
+        # mido.open_output pode demorar no driver e os hooks de teclado têm
+        # deadline rígida no Windows (callback presa no lock = teclas vazam).
         with self._lock:
             old_cfg = self._cfg
 
             # Solta o que estiver retido e limpa estado antes de trocar tudo
             self._unhook_all_locked()
             self._send_locked(self._mapper.release_all())
+
+            reopen = new_cfg.midi_port != old_cfg.midi_port or not self._port.is_open
+            want_port = new_cfg.midi_port
 
             self._cfg = new_cfg
 
@@ -151,16 +157,14 @@ class Engine:
                     or normalize_key(old_cfg.toggle_key) != normalize_key(new_cfg.toggle_key)):
                 self._register_toggle_key(new_cfg.toggle_key)
 
-            # Porta MIDI
-            want = new_cfg.midi_port
-            if not self._port.is_open or self._port.name != want:
-                self._open_port(want)
-
             # Re-hook se o modo captura estiver ligado
             if self._capture_active:
                 self._hook_mapped_locked()
 
-            self.push_event("Configuração aplicada.")
+        if reopen:
+            self._open_port(want_port)
+
+        self.push_event("Configuração aplicada.")
 
     def _register_toggle_key(self, key: str) -> None:
         """(Re)registra a hotkey global que alterna o modo captura."""

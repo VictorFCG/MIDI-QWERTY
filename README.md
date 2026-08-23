@@ -195,7 +195,7 @@ Testes:
 python -m pytest tests/ -q
 ```
 
-Roadmap: perfis múltiplos com hot-swap; investigar a fundo o `undefined external error` do Sonar (workaround já documentado em Solução de problemas, falta a causa raiz nesta máquina); reduzir o escopo do lock da engine (abrir/fechar a porta MIDI fora do lock para não competir com a deadline dos hooks de teclado).
+Roadmap: perfis múltiplos com hot-swap; investigar a fundo o `undefined external error` do Sonar (workaround já documentado em Solução de problemas, falta a causa raiz nesta máquina).
 
 ---
 
