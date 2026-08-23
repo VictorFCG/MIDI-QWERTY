@@ -95,7 +95,7 @@ midi-qwerty --config C:\caminho\outro-mapa.toml
 1. **Saída MIDI** — selecione a porta do loopMIDI no dropdown. `↻ Atualizar` reescaneia as portas (útil se você criar a porta depois de abrir o app). A troca é aplicada na hora, sem reiniciar. O indicador à direita mostra `● conectado` quando a porta está aberta.
 2. **Teclas mapeadas** — lista com resumo de cada mapeamento (`F1 → CC#20 toggle ch1`). Clique para editar; `✕` remove; `+ Adicionar tecla` cria um novo mapeamento e **já entra em modo de captura** — basta apertar a tecla desejada (se já existir uma entrada sem tecla, ela é reutilizada).
 3. **Painel de edição** (aparece ao selecionar uma tecla):
-   - **🎹 Capturar** — clique e aperte a tecla física que quer usar (Esc cancela). Não precisa digitar nomes.
+   - **Capturar tecla** — clique e aperte a tecla física que quer usar (Esc cancela; o aviso aparece na linha de status do painel). Não precisa digitar nomes.
    - **Tipo de ação** e **Canal MIDI** (exibido como 1–16).
    - Campos dinâmicos conforme o tipo (ver tabela abaixo). Teclas duplicadas são bloqueadas.
 4. **Tecla da interceptação** — por padrão `Scroll Lock`. Aperte-a em qualquer lugar do sistema para ligar/desligar a interceptação.

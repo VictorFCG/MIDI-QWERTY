@@ -407,7 +407,7 @@ class MidiQwertyApp(ctk.CTk):
 
         # Tecla ---------------------------------------------------------
         ctk.CTkLabel(p, text="Tecla:").grid(row=1, column=0, sticky="e", padx=(12, 6), pady=6)
-        self._btn_map_key = ctk.CTkButton(p, text="🎹 Capturar", width=110,
+        self._btn_map_key = ctk.CTkButton(p, text="Capturar tecla", width=110,
                                           fg_color=BTN_SECONDARY,
                                           hover_color=BTN_SECONDARY_HOVER,
                                           command=self._start_capture_map_key)
@@ -419,9 +419,6 @@ class MidiQwertyApp(ctk.CTk):
                                          border_width=1, border_color=BADGE_BORDER,
                                          width=90, height=28)
         self._lbl_map_key.grid(row=1, column=2, sticky="w", padx=(12, 6))
-        self._lbl_map_hint = ctk.CTkLabel(p, text="", text_color="#e67e22",
-                                          wraplength=0, justify="left")
-        self._lbl_map_hint.grid(row=1, column=3, columnspan=2, sticky="w")
 
         # Tipo ----------------------------------------------------------
         ctk.CTkLabel(p, text="Tipo de ação:").grid(row=2, column=0, sticky="e", padx=(12, 6), pady=6)
@@ -550,7 +547,7 @@ class MidiQwertyApp(ctk.CTk):
             return
         self._capturing = ("mapping", self._selected)
         self._btn_map_key.configure(text="⏺ Capturando…", fg_color=ACCENT)
-        self._lbl_map_hint.configure(text="aperte uma tecla — Esc cancela")
+        self._set_warn("aperte uma tecla — Esc cancela")
         self.focus_set()  # tira o foco de botões/entries (Espaço não dispara nada)
         self.bind("<KeyPress>", self._on_capture_keypress)
         self.bind("<FocusOut>", self._on_focus_out)
@@ -588,15 +585,15 @@ class MidiQwertyApp(ctk.CTk):
                 self.unbind(seq)
             except Exception:
                 pass
-        self._btn_map_key.configure(text="🎹 Capturar", fg_color=BTN_SECONDARY,
+        self._btn_map_key.configure(text="Capturar tecla", fg_color=BTN_SECONDARY,
                                     hover_color=BTN_SECONDARY_HOVER)
         self._btn_trig_cap.configure(text="Capturar tecla", fg_color=BTN_SECONDARY,
                                      hover_color=BTN_SECONDARY_HOVER)
         try:
-            self._lbl_map_hint.configure(text="")
             self._lbl_trig_hint.configure(text="")
         except AttributeError:
             pass  # painel reconstruído durante a captura
+        self._set_warn("")
 
     def _on_capture_keypress(self, event) -> str:
         if self._capturing is None:

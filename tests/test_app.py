@@ -228,6 +228,26 @@ def test_focusout_cancela_captura(app_factory):
     assert ui._capturing is None
 
 
+def test_hint_de_captura_na_linha_de_status(app_factory):
+    """O aviso 'Esc cancela' mora na linha de status (largura total),
+    nunca mais no rótulo apertado ao lado do botão."""
+    ui = app_factory(TOML_1MAP)
+    ui._selected = 0
+    ui._rebuild_edit_panel()
+
+    ui._start_capture_map_key()
+    warn = ui._warn_lbl._mocks["configure"].call_args.kwargs["text"]
+    assert warn == "aperte uma tecla — Esc cancela"
+
+    ui._cancel_capture()
+    warn = ui._warn_lbl._mocks["configure"].call_args.kwargs["text"]
+    assert warn == ""
+
+    # nenhum rótulo de hint criado na linha da tecla
+    assert not any("Esc" in str(k.get("text", ""))
+                   for k in WIDGET_KWARGS["CTkLabel"] if k.get("width") != 110)
+
+
 def test_focusout_interno_mantem_captura(app_factory):
     """Cenário do bug: clicar '+ Adicionar' dispara FocusOut do botão
     clicado (transição interna) logo após o bind — não pode cancelar."""
