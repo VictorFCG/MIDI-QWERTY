@@ -1,4 +1,4 @@
-"""Configuração do midi_cc.
+"""Configuração do MIDI-QWERTY.
 
 Define o modelo de dados do mapeamento (teclas -> ações MIDI) e a
 serialização para/de TOML. O arquivo atual é salvo de forma atômica
@@ -173,7 +173,7 @@ def _toml_str(s: str) -> str:
 
 
 def dumps(cfg: AppConfig) -> str:
-    lines: list[str] = ["# Arquivo gerado pelo midi_cc — pode ser editado à mão.", ""]
+    lines: list[str] = ["# Arquivo gerado pelo MIDI-QWERTY — pode ser editado à mão.", ""]
     lines += ["[midi]", f"port = {_toml_str(cfg.midi_port)}", ""]
     lines += ["[capture]", f"toggle_key = {_toml_str(cfg.toggle_key)}", ""]
     for m in cfg.mappings:

@@ -87,7 +87,7 @@ class MidiCCApp(ctk.CTk):
         self._capturing: tuple | None = None   # ("mapping", idx) | ("toggle", None)
         self._monitor_count = 0
 
-        self.title("midi_cc — teclado QWERTY → MIDI")
+        self.title("MIDI-QWERTY — teclado QWERTY → MIDI")
         self.geometry("920x820")
         self.minsize(820, 700)
         ctk.set_appearance_mode("dark")
@@ -164,6 +164,8 @@ class MidiCCApp(ctk.CTk):
         self._lbl_trig_val = ctk.CTkLabel(trig, text=self._cfg.toggle_key or "(desativado)",
                                           text_color="#f1c40f")
         self._lbl_trig_val.pack(side="left")
+        self._lbl_trig_hint = ctk.CTkLabel(trig, text="", text_color="#e67e22")
+        self._lbl_trig_hint.pack(side="left")
 
         ctl = ctk.CTkFrame(bottom, fg_color="transparent")
         ctl.grid(row=1, column=0, sticky="ew", padx=8, pady=4)
@@ -275,6 +277,8 @@ class MidiCCApp(ctk.CTk):
                                          text_color="#f1c40f" if m.key else "#c0392b",
                                          font=ctk.CTkFont(weight="bold"))
         self._lbl_map_key.grid(row=1, column=1, sticky="w", padx=(130, 0))
+        self._lbl_map_hint = ctk.CTkLabel(p, text="", text_color="#e67e22")
+        self._lbl_map_hint.grid(row=1, column=2, columnspan=2, sticky="w", padx=(12, 6))
 
         # Tipo ----------------------------------------------------------
         ctk.CTkLabel(p, text="Tipo de ação:").grid(row=2, column=0, sticky="e", padx=(12, 6), pady=6)
@@ -395,13 +399,15 @@ class MidiCCApp(ctk.CTk):
         if self._selected is None:
             return
         self._capturing = ("mapping", self._selected)
-        self._btn_map_key.configure(text="Aperte uma tecla… (Esc cancela)", fg_color=ACCENT)
+        self._btn_map_key.configure(text="⏺ Capturando…", fg_color=ACCENT)
+        self._lbl_map_hint.configure(text="aperte uma tecla — Esc cancela")
         self.focus_set()  # tira o foco de botões/entries (Espaço não dispara nada)
         self.bind("<KeyPress>", self._on_capture_keypress)
 
     def _start_capture_toggle_key(self) -> None:
         self._capturing = ("toggle", None)
-        self._btn_trig_cap.configure(text="Aperte uma tecla… (Esc cancela)", fg_color=ACCENT)
+        self._btn_trig_cap.configure(text="⏺ Capturando…", fg_color=ACCENT)
+        self._lbl_trig_hint.configure(text="aperte uma tecla — Esc cancela")
         self.focus_set()
         self.bind("<KeyPress>", self._on_capture_keypress)
 
@@ -413,6 +419,11 @@ class MidiCCApp(ctk.CTk):
             pass
         self._btn_map_key.configure(text="🎹 Capturar", fg_color="transparent")
         self._btn_trig_cap.configure(text="Capturar tecla", fg_color="transparent")
+        try:
+            self._lbl_map_hint.configure(text="")
+            self._lbl_trig_hint.configure(text="")
+        except AttributeError:
+            pass  # painel reconstruído durante a captura
 
     def _on_capture_keypress(self, event) -> str:
         if self._capturing is None:

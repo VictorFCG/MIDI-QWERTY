@@ -1,4 +1,4 @@
-"""Entry point: `midi-cc` ou `python -m midi_cc`.
+"""Entry point: `midi-qwerty` ou `python -m midi_cc`.
 
 Fluxo:
 1. carrega (ou cria) o arquivo de configuração;
@@ -6,17 +6,25 @@ Fluxo:
 3. abre a janela; ao fechar, encerra a engine limpando os hooks.
 
 Uso:
-    midi-cc [--config CAMINHO]
+    midi-qwerty [--config CAMINHO]
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from . import __version__
 from .config import ConfigError, default, load, save
 from .engine import Engine
+
+
+def _default_config_path() -> str:
+    """Config padrão: ./config.toml; no exe congelado, config.toml ao lado do .exe."""
+    if getattr(sys, "frozen", False):
+        return str(Path(sys.executable).resolve().parent / "config.toml")
+    return "config.toml"
 
 
 def _load_or_create(path: str):
@@ -33,11 +41,12 @@ def _load_or_create(path: str):
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="midi-cc",
-        description="Mapeia teclas do teclado QWERTY para comandos MIDI (via loopMIDI) com interface gráfica.",
+        prog="midi-qwerty",
+        description="MIDI-QWERTY: mapeia teclas do teclado QWERTY para comandos MIDI (via loopMIDI) com interface gráfica.",
     )
-    parser.add_argument("--config", default="config.toml",
-                        help="caminho do arquivo de configuração (padrão: ./config.toml)")
+    parser.add_argument("--config", default=_default_config_path(),
+                        help="caminho do arquivo de configuração "
+                             "(padrão: ./config.toml; no exe portátil, config.toml na pasta do .exe)")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args()
 

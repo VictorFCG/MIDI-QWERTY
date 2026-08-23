@@ -3,13 +3,13 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "midi-cc"
+name = "MIDI-QWERTY"
 version = "0.1.0"
 description = "Mapeia teclas do teclado QWERTY para comandos MIDI (CC, Note, PC) enviados a uma porta MIDI virtual (loopMIDI), com interface gráfica."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "midi_cc" }]
+authors = [{ name = "vfcoelho" }]
 dependencies = [
     "customtkinter>=5.2.2",
     "keyboard>=0.13.5",
@@ -21,7 +21,7 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-midi-cc = "midi_cc.__main__:main"
+midi-qwerty = "midi_cc.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

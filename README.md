@@ -1,11 +1,11 @@
-# midi_cc
+# MIDI-QWERTY
 
 Mapeia **teclas do teclado QWERTY** para **comandos MIDI** e envia para sua DAW — feito para Windows, usando o [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) como ponte MIDI virtual.
 
 Casos de uso típicos: ligar/desligar funções de plugins de guitarra (amp sim, bloqueador de ruído, looper), trocar presets via Program Change, acionar pedaleiras virtuais — sem tocar no mouse.
 
 ```
-Teclado QWERTY ──► [hook global] ──► midi_cc ──► loopMIDI ──► DAW / plugin
+Teclado QWERTY ──► [hook global] ──► MIDI-QWERTY ──► loopMIDI ──► DAW / plugin
                     (engole as      (mapeia)     (porta       (entrada MIDI)
                      teclas)                      virtual)
 ```
@@ -32,7 +32,7 @@ py -3 -m venv .venv
 pip install -e .
 ```
 
-Isso instala as dependências (`customtkinter`, `keyboard`, `mido`, `python-rtmidi`) e cria o comando `midi-cc`.
+Isso instala as dependências (`customtkinter`, `keyboard`, `mido`, `python-rtmidi`) e cria o comando `midi-qwerty`.
 
 ### loopMIDI
 
@@ -46,11 +46,44 @@ Isso instala as dependências (`customtkinter`, `keyboard`, `mido`, `python-rtmi
 
 ---
 
+## Integrando com a DAW
+
+O princípio é sempre o mesmo: o app envia para a porta do loopMIDI e a DAW precisa receber essa porta e entregá-la ao plugin. Em DAWs como Reaper isso é direto (entrada MIDI na própria trilha que hospeda o FX). No **Cakewalk Sonar**, plugins de FX em trilha de áudio **não** recebem o MIDI da própria trilha — é preciso uma trilha MIDI "ponte":
+
+### Cakewalk Sonar
+
+```
+MIDI-QWERTY → loopMIDI ──► TRILHA MIDI ──Output──► instância do plugin
+                       in: loopMIDI           (FX instalado numa
+                        Port                   trilha de áudio)
+```
+
+1. Trilha de áudio normal da guitarra com o amp sim como FX (monitoramento como de costume).
+2. Abra a janela do plugin e habilite a entrada MIDI **interna** dele:
+   - **Archetype (Neural DSP)**: ícone de MIDI no cabeçalho → ativar a entrada.
+   - **Helix Stadium**: menu → MIDI. Atenção: **bypass/controle usa o canal 2 por padrão** (global/preset/snapshot é canal 1; snapshot = CC69).
+3. Com a janela do plugin **em foco**, clique no botão **VST3** na barra do Sonar → **Enable MIDI Input**. Sem isso o plugin não aparece como destino de saída no passo seguinte.
+4. `Insert → MIDI Track` (a ponte):
+   - **Input**: `loopMIDI Port`
+   - **Output**: a instância do plugin (ex.: `Archetype: X 1`, `Helix Stadium Native`)
+   - **Input Echo**: **ligado** — sem eco, o MIDI ao vivo não passa enquanto o transporte está parado.
+5. Modo captura **ATIVO** no app → entre no modo learn do plugin → aperte a tecla mapeada.
+
+Quando estiver funcionando, salve como **Track Template** (`botão direito na trilha → Save as Track Template`) para reutilizar nos próximos projetos.
+
+| Sintoma | Verificar |
+|---|---|
+| Plugin não aparece no Output da trilha MIDI | Passo 3 (`Enable MIDI Input`) |
+| Aparece, mas nada chega | Input Echo desligado; input errado; porta desabilitada em Preferências → MIDI → Devices |
+| Chega, mas o plugin ignora | Canal errado — no Helix, bypass/controle é canal 2 (mude o canal no mapa do app ou o canal do plugin para 1) |
+
+---
+
 ## Uso
 
 ```bat
-midi-cc                 :: usa .\config.toml
-midi-cc --config C:\caminho\outro-mapa.toml
+midi-qwerty                 :: usa .\config.toml
+midi-qwerty --config C:\caminho\outro-mapa.toml
 ```
 
 ### Janela principal
@@ -125,7 +158,8 @@ off_value = 0              # cc_toggle
 | A porta não aparece no dropdown | Crie a porta no loopMIDI e clique em `↻ Atualizar`. |
 | Teclas mapeadas digitam letras na DAW | Modo captura está INATIVO — aperte a tecla gatilho (Scroll Lock) ou o botão na GUI. |
 | Nada chega na DAW | Confira se a entrada MIDI `loopMIDI Port` está habilitada na trilha/plugin e se o nº de canal/CC coincide. Use o monitor para confirmar o que foi enviado. |
-| Hooks não funcionam com a DAW aberta | Se a DAW estiver rodando **como administrador**, rode o `midi-cc` como administrador também. |
+| Hooks não funcionam com a DAW aberta | Se a DAW estiver rodando **como administrador**, rode o `midi-qwerty` como administrador também. |
+| Sonar: `undefined external error` ao habilitar entrada MIDI em Preferências → MIDI → Devices | Bug antigo do Windows (filtro `ksthunk` ausente na classe MEDIA do registro). Antes de mexer no registro, feche apps que seguram a porta (MIDI-QWERTY, standalone do plugin) e reabra o Sonar. Se persistir: `regedit` → chave `HKLM\SYSTEM\CurrentControlSet\Control\Class\{4D36E96C-E325-11CE-BFC1-08002BE10318}` (confira `(Default)` = *Sound, video and game controllers*) → crie um **Multi-String Value** chamado `UpperFilters` com valor `ksthunk` (case-sensitive; se já existir vazio, complete) → reinicie o Windows. Persistindo ainda: remova dispositivos MIDI "fantasmas" duplicados (Gerenciador de Dispositivos → Mostrar dispositivos ocultos). |
 | Antivírus reclama dos hooks | Hooks globais de teclado podem gerar alerta; libere o executável/script. |
 
 ---
@@ -156,7 +190,40 @@ Testes:
 python -m pytest tests/ -q
 ```
 
-Roadmap: empacotamento com PyInstaller (exe único), perfis múltiplos com hot-swap.
+Roadmap: perfis múltiplos com hot-swap; investigar a fundo o `undefined external error` do Sonar (workaround já documentado em Solução de problemas, falta a causa raiz nesta máquina); versão executável/portável (seção abaixo).
+
+---
+
+## Versão executável/portável
+
+Gerar um `MIDI-QWERTY.exe` **portável** (não requer Python instalado) via PyInstaller. Os arquivos de build já estão versionados (`run.py`, `midi_cc.spec`, `build_exe.bat`) — o build roda no Windows (PyInstaller não faz cross-build a partir do WSL/Linux):
+
+```bat
+cd caminho\para\midi_cc
+.venv\Scripts\activate
+pip install -e . pyinstaller
+build_exe.bat          :: gera dist\MIDI-QWERTY.exe
+```
+
+**Como funciona**
+
+| Item | Decisão |
+|---|---|
+| Formato | `onefile` + `windowed` (exe único, sem console), nome `MIDI-QWERTY.exe` |
+| Config no modo congelado | `config.toml` é criado/lido na **pasta do `.exe`** (detecção `sys.frozen` em `__main__.py`) — portátil de verdade: a pasta inteira pode ir para pendrive |
+| Assets do CustomTkinter | `collect_data_files("customtkinter")` no spec (temas não são autodetectados) |
+| Backend MIDI | `mido.backends.rtmidi` + `rtmidi` nos `hiddenimports` (carregado por string em `midi.py`) |
+| UPX | desligado — reduz falso positivo de antivírus |
+
+**Riscos conhecidos**
+- Antivírus/SmartScreen podem acusar falso positivo com PyInstaller (comum); opções: assinar o binário ou distribuir o zip com instrução de liberação.
+- A lib `keyboard` às vezes exige execução como admin se a DAW estiver elevada — vale um aviso no primeiro boot do exe.
+
+**Checklist pós-build**
+1. Hook global de teclado funciona sem console
+2. Porta MIDI aparece no dropdown e mensagens chegam na DAW
+3. Auto-save do config ao lado do exe; exportar/importar funcionam
+4. Se SmartScreen reclamar: "Mais informações → Executar assim mesmo" ou liberar no Defender
 
 ---
 

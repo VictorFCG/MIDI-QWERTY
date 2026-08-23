@@ -53,7 +53,7 @@ class Engine:
 
     def start(self) -> None:
         self._running = True
-        self._worker = threading.Thread(target=self._work, name="midi-cc-engine", daemon=True)
+        self._worker = threading.Thread(target=self._work, name="midi-qwerty-engine", daemon=True)
         self._worker.start()
         self.apply_config(self._cfg)
 
