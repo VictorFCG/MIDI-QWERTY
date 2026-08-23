@@ -231,3 +231,74 @@ def test_titulo_reflete_interceptacao(app_factory):
     ui._engine._capture_active = False
     ui._reflect_state()
     assert "INTERCEPTANDO" not in str(ui.title.call_args.args[0])
+
+
+# ---------------------------------------------------------------------------
+# UX P1: navegação por teclado, clamp visível, tela pequena, hotkey falha
+# ---------------------------------------------------------------------------
+
+
+def test_seta_move_selecao_e_delete_marca(app_factory):
+    ui = app_factory(TOML_3MAPS)
+    assert ui._move_selection(1) == "break"
+    assert ui._selected == 0                       # de None vai para a 1ª
+    ui._move_selection(1)
+    ui._move_selection(-5)                          # clampa no início
+    assert ui._selected == 0
+
+    ui._selected = 0
+    ui._rebuild_edit_panel()
+    ui._on_delete_key()                             # 1º Del: só confirma
+    assert len(ui._cfg.mappings) == 3
+    ui._on_delete_key()                             # 2º Del: apaga
+    assert len(ui._cfg.mappings) == 2
+
+
+def test_navegacao_ignora_entry_e_captura(app_factory):
+    ui = app_factory(TOML_3MAPS)
+
+    class FakeFocus:
+        winfo_name = "ctkentry"                     # foco num campo de texto
+
+    ui._mocks["focus_get"] = lambda: FakeFocus()
+    ui._move_selection(1)
+    assert ui._selected is None                     # não roubou o ↑/↓ do campo
+
+    ui._mocks["focus_get"] = lambda: None
+    ui._capturing = ("mapping", 0)                  # durante captura, ignora
+    ui._move_selection(1)
+    assert ui._selected is None
+    ui._capturing = None
+
+
+def test_clamp_avisa_o_usuario(app_factory):
+    ui = app_factory(TOML_1MAP)
+    ui._selected = 0
+    ui._rebuild_edit_panel()
+    ui._menus["type"]._mocks["get"] = lambda: "CC alternar (toggle)"
+    ui._menus["channel"]._mocks["get"] = lambda: "1"
+    ui._entries["cc"]._mocks["get"] = lambda: "999"
+    assert ui._read_panel_into() is True            # valor válido após clamp
+    assert ui._cfg.mappings[0].action.cc == 127
+    warn = ui._warn_lbl._mocks["configure"].call_args.kwargs["text"]
+    assert "999 → 127" in warn
+
+
+def test_janela_clampa_em_tela_pequena(app_factory):
+    ui = app_factory(TOML_1MAP)
+    ui._mocks["winfo_screenwidth"] = lambda: 1366
+    ui._mocks["winfo_screenheight"] = lambda: 768   # notebook comum
+    assert ui._initial_geometry() == "1120x668"
+
+
+def test_hotkey_falha_mostra_aviso_no_gatilho(app_factory):
+    ui = app_factory(TOML_1MAP)
+    ui._engine._toggle_hk_ok = False                # registro da hotkey falhou
+    ui._reflect_state()
+    hint = ui._lbl_trig_hint._mocks["configure"].call_args.kwargs["text"]
+    assert "Capturar tecla" in hint
+
+    ui._engine._toggle_hk_ok = True
+    ui._reflect_state()
+    hint_ok = ui._lbl_trig_hint._mocks["configure"].call_args.kwargs["text"]
+    assert hint_ok == ""

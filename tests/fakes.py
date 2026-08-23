@@ -37,6 +37,10 @@ def _make_cls(name: str):
             if m is None:
                 if attr == "winfo_children":
                     m = lambda: []  # noqa: E731
+                elif attr == "winfo_screenwidth":
+                    m = lambda: 1920  # noqa: E731
+                elif attr == "winfo_screenheight":
+                    m = lambda: 1080  # noqa: E731
                 elif attr in ("get", "index"):
                     m = lambda *a, **k: "1"  # noqa: E731
                 else:

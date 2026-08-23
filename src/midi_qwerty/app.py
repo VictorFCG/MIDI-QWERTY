@@ -95,8 +95,10 @@ class MidiQwertyApp(ctk.CTk):
         self._delete_buttons: dict[int, ctk.CTkButton] = {}
 
         self.title(BASE_TITLE)
-        self.geometry("1120x800")
-        self.minsize(960, 700)
+        geo = self._initial_geometry()
+        self.geometry(geo)
+        gw, gh = (int(x) for x in geo.split("x"))
+        self.minsize(min(960, gw), min(700, gh))
         ctk.set_appearance_mode("dark")
 
         self._build_ui()
@@ -208,6 +210,22 @@ class MidiQwertyApp(ctk.CTk):
         self._rebuild_list()
         self._rebuild_edit_panel()
 
+        # Navegação por teclado na lista (↑/↓ seleciona, Del remove)
+        self.bind("<Up>", lambda _e: (self._move_selection(-1), "break")[1])
+        self.bind("<Down>", lambda _e: (self._move_selection(1), "break")[1])
+        self.bind("<Delete>", self._on_delete_key)
+
+    def _initial_geometry(self) -> str:
+        """Janela padrão, clamped à tela (notebooks com 768px de altura)."""
+        try:
+            sw = int(self.winfo_screenwidth())
+            sh = int(self.winfo_screenheight())
+        except Exception:
+            return "1120x800"
+        w = max(min(1120, sw - 60), 900)
+        h = max(min(800, sh - 100), 600)
+        return f"{w}x{h}"
+
     # ==================================================================
     # Lista de teclas mapeadas
     # ==================================================================
@@ -305,6 +323,29 @@ class MidiQwertyApp(ctk.CTk):
         self._selected = idx
         self._rebuild_list()
         self._rebuild_edit_panel()
+
+    def _focused_widget_name(self) -> str:
+        name = getattr(self.focus_get(), "winfo_name", "")
+        if callable(name):
+            name = name()
+        return str(name or "").lower()
+
+    def _move_selection(self, delta: int) -> str:
+        if "entry" in self._focused_widget_name() or self._capturing is not None:
+            return ""  # não rouba ↑/↓ de campos de texto nem durante captura
+        n = len(self._cfg.mappings)
+        if n == 0:
+            return "break"
+        cur = -1 if self._selected is None else self._selected
+        self._select_mapping(max(0, min(n - 1, cur + delta)))
+        return "break"
+
+    def _on_delete_key(self, _event=None) -> str:
+        if "entry" in self._focused_widget_name() or self._capturing is not None:
+            return ""
+        if self._selected is not None:
+            self._remove_mapping(self._selected)  # 1º Del marca; 2º apaga
+        return "break"
 
     def _add_mapping(self) -> None:
         # Reutiliza uma entrada ainda sem tecla, se houver (evita duplicar
@@ -422,6 +463,7 @@ class MidiQwertyApp(ctk.CTk):
         kind = dict(TYPE_OPTIONS)[self._menus["type"].get()]  # rótulo -> kind
         channel = int(self._menus["channel"].get()) - 1
         vals = {}
+        clamped: list[str] = []
         for name, lo_hi in (("cc", (0, 127)), ("on_value", (0, 127)), ("off_value", (0, 127)),
                             ("press_value", (0, 127)), ("release_value", (0, 127)),
                             ("note", (0, 127)), ("velocity", (0, 127)), ("program", (0, 127))):
@@ -430,10 +472,13 @@ class MidiQwertyApp(ctk.CTk):
                 continue
             raw = ent.get().strip()
             try:
-                v = max(lo_hi[0], min(lo_hi[1], int(raw)))
+                orig = int(raw)
+                v = max(lo_hi[0], min(lo_hi[1], orig))
             except ValueError:
                 self._set_warn(f"Valor inválido em '{name}'. Use um inteiro.")
                 return False
+            if v != orig:
+                clamped.append(f"{name}: {orig} → {v}")
             vals[name] = v
 
         if kind == "cc_toggle":
@@ -448,7 +493,10 @@ class MidiQwertyApp(ctk.CTk):
             act = PCAction(channel, vals.get("program", 0))
 
         self._cfg.mappings[self._selected] = Mapping(key=old.key, action=act)
-        self._set_warn("")
+        if clamped:
+            self._set_warn("Ajustado ao limite MIDI (0–127): " + ", ".join(clamped))
+        else:
+            self._set_warn("")
         return True
 
     def _on_type_changed(self) -> None:
@@ -631,7 +679,9 @@ class MidiQwertyApp(ctk.CTk):
         self._cancel_capture()  # captura pendente apontaria para índice do arquivo antigo
         if not mb.askyesno(
             "Importar mapeamento",
-            "Importar vai SUBSTITUIR o mapeamento atual (o arquivo importado não é alterado).\nContinuar?",
+            "Importar vai SUBSTITUIR o mapeamento atual, além da porta MIDI e da\n"
+            "tecla de interceptação gravadas no arquivo (o arquivo importado não é alterado).\n"
+            "Continuar?",
             parent=self,
         ):
             return
@@ -677,7 +727,7 @@ class MidiQwertyApp(ctk.CTk):
         self.after(150, self._poll)
 
     def _reflect_state(self) -> None:
-        """Estado do modo interceptação e da porta — título, rótulos, botão."""
+        """Estado da interceptação e da porta — título, rótulos, botão."""
         active = self._engine.capture_active()
         self.title(f"{BASE_TITLE}  [INTERCEPTANDO]" if active else BASE_TITLE)
         self._lbl_mode.configure(
@@ -688,6 +738,14 @@ class MidiQwertyApp(ctk.CTk):
             text=("■ Desativar interceptação" if active else "▶ Ativar interceptação agora"),
             fg_color="#7b241c" if active else ACCENT,
         )
+        if self._capturing is None:
+            hk_ok = self._engine.toggle_hotkey_ok()
+            self._lbl_trig_hint.configure(
+                text="" if hk_ok else
+                "⚠ esta tecla não existe/está indisponível aqui "
+                "(comum em notebooks) — clique em 'Capturar tecla' e escolha outra",
+                text_color="" if hk_ok else "#e67e22",
+            )
 
         pname = self._engine.port_name()
         if pname is None:

@@ -39,6 +39,7 @@ class Engine:
         self._capture_active = False
         self._hooked: set[str] = set()
         self._toggle_hk = None  # handle do add_hotkey da tecla gatilho
+        self._toggle_hk_ok = True  # False se o registro da hotkey falhar
 
         self._cmds: queue.Queue[tuple] = queue.Queue()
         self._worker: threading.Thread | None = None
@@ -88,6 +89,11 @@ class Engine:
     def port_name(self) -> str | None:
         with self._lock:
             return self._port.name
+
+    def toggle_hotkey_ok(self) -> bool:
+        """False se a hotkey da tecla de interceptação não pôde ser registrada."""
+        with self._lock:
+            return self._toggle_hk_ok
 
     def config(self) -> AppConfig:
         """Cópia da config atualmente aplicada."""
@@ -167,7 +173,7 @@ class Engine:
         self.push_event("Configuração aplicada.")
 
     def _register_toggle_key(self, key: str) -> None:
-        """(Re)registra a hotkey global que alterna o modo captura."""
+        """(Re)registra a hotkey global que alterna a interceptação."""
         if self._toggle_hk is not None:
             try:
                 keyboard.remove_hotkey(self._toggle_hk)
@@ -175,13 +181,17 @@ class Engine:
                 pass
             self._toggle_hk = None
         key = normalize_key(key)
-        if key:
-            try:
-                self._toggle_hk = keyboard.add_hotkey(
-                    key, lambda: self.toggle_capture(), suppress=False, trigger_on_release=False
-                )
-            except Exception as e:
-                self.push_event(f"ERRO ao registrar tecla gatilho '{key}': {e}")
+        if not key:
+            self._toggle_hk_ok = True  # sem gatilho é intencional, não falha
+            return
+        try:
+            self._toggle_hk = keyboard.add_hotkey(
+                key, lambda: self.toggle_capture(), suppress=False, trigger_on_release=False
+            )
+            self._toggle_hk_ok = True
+        except Exception as e:
+            self._toggle_hk_ok = False
+            self.push_event(f"ERRO ao registrar tecla '{key}': {e}")
 
     def _open_port(self, name: str) -> None:
         try:
