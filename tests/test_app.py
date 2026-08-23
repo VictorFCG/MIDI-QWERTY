@@ -287,6 +287,11 @@ def test_painel_de_edicao_grid_sem_sobra_entre_os_pares(app_factory):
     gk = ui._lbl_map_key.grid.call_args.kwargs
     assert gk["column"] == 2 and gk["padx"] == (12, 6)
 
+    # badge da tecla tem fundo e borda próprios (visível sobre o painel)
+    badge = next(k for k in WIDGET_KWARGS["CTkLabel"] if k.get("width") == 90)
+    assert badge.get("fg_color") == "#333333"
+    assert badge.get("border_width") == 1 and badge.get("border_color")
+
 
 def test_seta_move_selecao_e_delete_marca(app_factory):
     ui = app_factory(TOML_3MAPS)

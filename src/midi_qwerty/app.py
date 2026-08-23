@@ -39,7 +39,8 @@ ROW_HOVER = "#383838"
 ROW_SEL_BG = "#1f4e79"
 BTN_SECONDARY = "#5d6d7e"
 BTN_SECONDARY_HOVER = "#717d7e"
-KEY_BADGE_BG = "#2b2b2b"
+KEY_BADGE_BG = "#333333"
+BADGE_BORDER = "#6b6b6b"
 DANGER = "#7b241c"
 DANGER_HOVER = "#943126"
 
@@ -213,6 +214,7 @@ class MidiQwertyApp(ctk.CTk):
                                           text_color="#f1c40f" if self._cfg.toggle_key else "#e74c3c",
                                           font=ctk.CTkFont(weight="bold"),
                                           fg_color=KEY_BADGE_BG, corner_radius=6,
+                                          border_width=1, border_color=BADGE_BORDER,
                                           width=110, height=28)
         self._lbl_trig_val.pack(side="left", padx=(8, 0))
         self._lbl_trig_hint = ctk.CTkLabel(right, text="", text_color="#e67e22",
@@ -414,10 +416,11 @@ class MidiQwertyApp(ctk.CTk):
                                          text_color="#f1c40f" if m.key else "#e74c3c",
                                          font=ctk.CTkFont(weight="bold"),
                                          fg_color=KEY_BADGE_BG, corner_radius=6,
+                                         border_width=1, border_color=BADGE_BORDER,
                                          width=90, height=28)
         self._lbl_map_key.grid(row=1, column=2, sticky="w", padx=(12, 6))
         self._lbl_map_hint = ctk.CTkLabel(p, text="", text_color="#e67e22",
-                                          wraplength=220, justify="left")
+                                          wraplength=0, justify="left")
         self._lbl_map_hint.grid(row=1, column=3, columnspan=2, sticky="w")
 
         # Tipo ----------------------------------------------------------
