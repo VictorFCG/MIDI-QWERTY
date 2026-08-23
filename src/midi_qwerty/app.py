@@ -37,6 +37,11 @@ ACCENT = "#1f6aa5"
 ROW_BG = "#2b2b2b"
 ROW_HOVER = "#383838"
 ROW_SEL_BG = "#1f4e79"
+BTN_SECONDARY = "#5d6d7e"
+BTN_SECONDARY_HOVER = "#717d7e"
+KEY_BADGE_BG = "#2b2b2b"
+DANGER = "#7b241c"
+DANGER_HOVER = "#943126"
 
 TYPE_OPTIONS = [  # (rótulo exibido, kind)
     ("CC alternar (toggle)", "cc_toggle"),
@@ -151,10 +156,10 @@ class MidiQwertyApp(ctk.CTk):
         head.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 2))
         head.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(head, text="Teclas mapeadas (clique para editar):").grid(row=0, column=0, sticky="w")
-        ctk.CTkButton(head, text="Importar", width=90, fg_color="#5d6d7e",
-                      hover_color="#717d7e", command=self._import).grid(row=0, column=1, padx=(0, 6))
-        ctk.CTkButton(head, text="Exportar", width=90, fg_color="#5d6d7e",
-                      hover_color="#717d7e", command=self._export).grid(row=0, column=2, padx=(0, 6))
+        ctk.CTkButton(head, text="Importar", width=90, fg_color=BTN_SECONDARY,
+                      hover_color=BTN_SECONDARY_HOVER, command=self._import).grid(row=0, column=1, padx=(0, 6))
+        ctk.CTkButton(head, text="Exportar", width=90, fg_color=BTN_SECONDARY,
+                      hover_color=BTN_SECONDARY_HOVER, command=self._export).grid(row=0, column=2, padx=(0, 6))
         ctk.CTkButton(head, text="+ Adicionar tecla", width=140,
                       command=self._add_mapping).grid(row=0, column=3)
 
@@ -178,7 +183,7 @@ class MidiQwertyApp(ctk.CTk):
         ctk.CTkLabel(mhead, text="Monitor de mensagens enviadas:",
                      anchor="w").grid(row=0, column=0, sticky="w")
         ctk.CTkButton(mhead, text="Limpar", width=70, height=24,
-                      fg_color="#5d6d7e", hover_color="#717d7e",
+                      fg_color=BTN_SECONDARY, hover_color=BTN_SECONDARY_HOVER,
                       command=self._clear_monitor).grid(row=0, column=1, padx=(6, 0))
         self._monitor = ctk.CTkTextbox(right, state="disabled", wrap="none",
                                        font=ctk.CTkFont(family="Consolas", size=13))
@@ -200,10 +205,15 @@ class MidiQwertyApp(ctk.CTk):
         trigrow = ctk.CTkFrame(right, fg_color="transparent")
         trigrow.grid(row=6, column=0, sticky="ew", pady=2)
         self._btn_trig_cap = ctk.CTkButton(trigrow, text="Capturar tecla", width=110,
+                                           fg_color=BTN_SECONDARY,
+                                           hover_color=BTN_SECONDARY_HOVER,
                                            command=self._start_capture_toggle_key)
         self._btn_trig_cap.pack(side="left")
-        self._lbl_trig_val = ctk.CTkLabel(trigrow, text=self._cfg.toggle_key or "(desativado)",
-                                          text_color="#f1c40f")
+        self._lbl_trig_val = ctk.CTkLabel(trigrow, text=(self._cfg.toggle_key or "(desativado)").upper(),
+                                          text_color="#f1c40f" if self._cfg.toggle_key else "#e74c3c",
+                                          font=ctk.CTkFont(weight="bold"),
+                                          fg_color=KEY_BADGE_BG, corner_radius=6,
+                                          width=110, height=28)
         self._lbl_trig_val.pack(side="left", padx=(8, 0))
         self._lbl_trig_hint = ctk.CTkLabel(right, text="", text_color="#e67e22",
                                            wraplength=300, justify="left")
@@ -396,11 +406,15 @@ class MidiQwertyApp(ctk.CTk):
         # Tecla ---------------------------------------------------------
         ctk.CTkLabel(p, text="Tecla:").grid(row=1, column=0, sticky="e", padx=(12, 6), pady=6)
         self._btn_map_key = ctk.CTkButton(p, text="🎹 Capturar", width=110,
+                                          fg_color=BTN_SECONDARY,
+                                          hover_color=BTN_SECONDARY_HOVER,
                                           command=self._start_capture_map_key)
         self._btn_map_key.grid(row=1, column=1, sticky="w", pady=6)
         self._lbl_map_key = ctk.CTkLabel(p, text=m.key.upper() if m.key else "(nenhuma)",
-                                         text_color="#f1c40f" if m.key else "#c0392b",
-                                         font=ctk.CTkFont(weight="bold"))
+                                         text_color="#f1c40f" if m.key else "#e74c3c",
+                                         font=ctk.CTkFont(weight="bold"),
+                                         fg_color=KEY_BADGE_BG, corner_radius=6,
+                                         width=90, height=28)
         self._lbl_map_key.grid(row=1, column=2, sticky="w", padx=(12, 6))
         self._lbl_map_hint = ctk.CTkLabel(p, text="", text_color="#e67e22",
                                           wraplength=220, justify="left")
@@ -571,8 +585,10 @@ class MidiQwertyApp(ctk.CTk):
                 self.unbind(seq)
             except Exception:
                 pass
-        self._btn_map_key.configure(text="🎹 Capturar", fg_color="transparent")
-        self._btn_trig_cap.configure(text="Capturar tecla", fg_color="transparent")
+        self._btn_map_key.configure(text="🎹 Capturar", fg_color=BTN_SECONDARY,
+                                    hover_color=BTN_SECONDARY_HOVER)
+        self._btn_trig_cap.configure(text="Capturar tecla", fg_color=BTN_SECONDARY,
+                                     hover_color=BTN_SECONDARY_HOVER)
         try:
             self._lbl_map_hint.configure(text="")
             self._lbl_trig_hint.configure(text="")
@@ -618,7 +634,7 @@ class MidiQwertyApp(ctk.CTk):
                 return "break"
             self._set_warn("")
             self._cfg.toggle_key = name
-            self._lbl_trig_val.configure(text=name, text_color="#f1c40f")
+            self._lbl_trig_val.configure(text=name.upper(), text_color="#f1c40f")
 
         self._commit(rebuild_list=True)
         return "break"
@@ -712,7 +728,8 @@ class MidiQwertyApp(ctk.CTk):
         self._commit(rebuild_list=True)
         self._rebuild_edit_panel()
         self._refresh_ports(select=self._cfg.midi_port)
-        self._lbl_trig_val.configure(text=self._cfg.toggle_key or "(desativado)")
+        self._lbl_trig_val.configure(text=(self._cfg.toggle_key or "(desativado)").upper(),
+                                     text_color="#f1c40f" if self._cfg.toggle_key else "#e74c3c")
 
     # ==================================================================
     # Polling: monitor + status

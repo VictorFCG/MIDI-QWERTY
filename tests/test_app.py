@@ -172,6 +172,25 @@ def test_tk_keysym_to_name():
     assert tk_keysym_to_name("abnt_c1") == "abnt c1"  # fallback: underscore->espaço
 
 
+def test_botoes_capturar_voltam_ao_estilo_padrao(app_factory):
+    """Após concluir/cancelar captura, os botões não podem ficar transparentes."""
+    from midi_qwerty.app import BTN_SECONDARY
+
+    ui = app_factory(TOML_1MAP)
+    ui._selected = 0
+    ui._rebuild_edit_panel()
+
+    ui._start_capture_map_key()
+    ui._on_capture_keypress(Ev("q"))
+    fg = ui._btn_map_key._mocks["configure"].call_args.kwargs["fg_color"]
+    assert fg == BTN_SECONDARY
+
+    ui._start_capture_toggle_key()
+    ui._on_capture_keypress(Ev("Escape"))
+    fg = ui._btn_trig_cap._mocks["configure"].call_args.kwargs["fg_color"]
+    assert fg == BTN_SECONDARY
+
+
 # ---------------------------------------------------------------------------
 # UX P0: exclusão confirmada, FocusOut na captura, título refletindo estado
 # ---------------------------------------------------------------------------
