@@ -88,8 +88,8 @@ class MidiQwertyApp(ctk.CTk):
         self._monitor_count = 0
 
         self.title("MIDI-QWERTY — teclado QWERTY → MIDI")
-        self.geometry("920x820")
-        self.minsize(820, 700)
+        self.geometry("960x940")
+        self.minsize(860, 780)
         ctk.set_appearance_mode("dark")
 
         self._build_ui()
@@ -105,6 +105,9 @@ class MidiQwertyApp(ctk.CTk):
 
     def _build_ui(self) -> None:
         self.grid_columnconfigure(0, weight=1)
+        # linhas flexíveis: 1 (lista rolável) e 3 (monitor) dividem o espaço
+        # extra/faltante — a lista cresce/diminui sem empurrar o monitor p/ fora
+        self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(3, weight=1)
 
         # --- Linha 0: porta MIDI -------------------------------------
@@ -128,6 +131,7 @@ class MidiQwertyApp(ctk.CTk):
         mid = ctk.CTkFrame(self)
         mid.grid(row=1, column=0, sticky="nsew", padx=12, pady=6)
         mid.grid_columnconfigure(0, weight=1)
+        mid.grid_rowconfigure(1, weight=1)
 
         head = ctk.CTkFrame(mid, fg_color="transparent")
         head.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 2))
@@ -141,7 +145,7 @@ class MidiQwertyApp(ctk.CTk):
                       command=self._add_mapping).grid(row=0, column=3)
 
         self._list_frame = ctk.CTkScrollableFrame(mid, height=170)
-        self._list_frame.grid(row=1, column=0, sticky="ew", padx=8, pady=(2, 8))
+        self._list_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=(2, 8))
         self._list_frame.grid_columnconfigure(0, weight=1)
 
         # --- Linha 2: painel de edição --------------------------------
