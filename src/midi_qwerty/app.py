@@ -381,10 +381,17 @@ class MidiQwertyApp(ctk.CTk):
 
         m = self._cfg.mappings[self._selected]
         p = self._edit_panel
+
+        # Grid em 4 colunas pareadas (rótulo|campo|rótulo|campo) + espaçador:
+        # a sobra de largura vai para o FIM da linha, nunca entre os pares.
+        for c in range(4):
+            p.grid_columnconfigure(c, weight=0)
+        p.grid_columnconfigure(4, weight=1)
+
         title = f"Editando tecla {self._selected + 1}"
         ctk.CTkLabel(p, text=title, font=ctk.CTkFont(size=13, weight="bold"),
-                     text_color="#7f8c8d").grid(row=0, column=0, columnspan=4, sticky="w",
-                                                padx=12, pady=(8, 0))
+                     text_color="#7f8c8d").grid(row=0, column=0, columnspan=5,
+                                                sticky="w", padx=12, pady=(8, 0))
 
         # Tecla ---------------------------------------------------------
         ctk.CTkLabel(p, text="Tecla:").grid(row=1, column=0, sticky="e", padx=(12, 6), pady=6)
@@ -394,10 +401,10 @@ class MidiQwertyApp(ctk.CTk):
         self._lbl_map_key = ctk.CTkLabel(p, text=m.key.upper() if m.key else "(nenhuma)",
                                          text_color="#f1c40f" if m.key else "#c0392b",
                                          font=ctk.CTkFont(weight="bold"))
-        self._lbl_map_key.grid(row=1, column=1, sticky="w", padx=(130, 0))
+        self._lbl_map_key.grid(row=1, column=2, sticky="w", padx=(12, 6))
         self._lbl_map_hint = ctk.CTkLabel(p, text="", text_color="#e67e22",
-                                          wraplength=250, justify="left")
-        self._lbl_map_hint.grid(row=1, column=2, columnspan=2, sticky="w", padx=(12, 6))
+                                          wraplength=220, justify="left")
+        self._lbl_map_hint.grid(row=1, column=3, columnspan=2, sticky="w")
 
         # Tipo ----------------------------------------------------------
         ctk.CTkLabel(p, text="Tipo de ação:").grid(row=2, column=0, sticky="e", padx=(12, 6), pady=6)
@@ -442,9 +449,9 @@ class MidiQwertyApp(ctk.CTk):
             r += 1
 
         self._warn_lbl = ctk.CTkLabel(p, text="", text_color="#e67e22")
-        self._warn_lbl.grid(row=r, column=0, columnspan=4, sticky="w", padx=12, pady=(2, 8))
+        self._warn_lbl.grid(row=r, column=0, columnspan=5, sticky="w", padx=12, pady=(2, 8))
         ctk.CTkLabel(p, text="Alterações aplicam e salvam automaticamente.",
-                     text_color="#7f8c8d").grid(row=r + 1, column=0, columnspan=4,
+                     text_color="#7f8c8d").grid(row=r + 1, column=0, columnspan=5,
                                                 sticky="w", padx=12, pady=(0, 10))
 
     def _num_field(self, row: int, col: int, label: str, name: str, value: int) -> None:

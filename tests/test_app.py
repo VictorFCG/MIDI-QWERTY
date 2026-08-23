@@ -248,6 +248,22 @@ def test_titulo_reflete_interceptacao(app_factory):
 # ---------------------------------------------------------------------------
 
 
+def test_painel_de_edicao_grid_sem_sobra_entre_os_pares(app_factory):
+    ui = app_factory(TOML_1MAP)
+    ui._selected = 0
+    ui._rebuild_edit_panel()
+
+    # peso só na coluna espaçadora final — pares de campos ficam juntos
+    wc = {c.args[0]: c.kwargs.get("weight")
+          for c in ui._edit_panel.grid_columnconfigure.call_args_list}
+    assert wc.get(4) == 1
+    assert all((wc.get(i) or 0) == 0 for i in range(4))
+
+    # rótulo do valor da tecla em célula própria (sem hack de padx sobre botão)
+    gk = ui._lbl_map_key.grid.call_args.kwargs
+    assert gk["column"] == 2 and gk["padx"] == (12, 6)
+
+
 def test_seta_move_selecao_e_delete_marca(app_factory):
     ui = app_factory(TOML_3MAPS)
     assert ui._move_selection(1) == "break"
