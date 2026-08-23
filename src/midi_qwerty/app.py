@@ -183,6 +183,7 @@ class MidiQwertyApp(ctk.CTk):
                                        wrap="none", font=ctk.CTkFont(family="Consolas", size=13))
         self._monitor.grid(row=3, column=0, sticky="nsew", padx=8, pady=(2, 8))
 
+        self._rebuild_list()
         self._rebuild_edit_panel()
 
     # ==================================================================
