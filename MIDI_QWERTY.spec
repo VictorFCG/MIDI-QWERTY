@@ -1,9 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""midi_cc.spec — gera dist/MIDI-QWERTY.exe portável (onefile, sem console).
+"""MIDI_QWERTY.spec — gera dist/MIDI-QWERTY.exe portável (onefile, sem console).
 
 Uso no Windows, dentro do venv do projeto:
     pip install -e . pyinstaller
-    pyinstaller midi_cc.spec --noconfirm
+    pyinstaller MIDI_QWERTY.spec --noconfirm
     (ou simplesmente rode build_exe.bat)
 
 Notas de empacotamento:

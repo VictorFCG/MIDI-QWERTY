@@ -76,7 +76,7 @@ def tk_keysym_to_name(keysym: str) -> str:
     return _TK_KEYMAP.get(ks, ks.replace("_", " "))
 
 
-class MidiCCApp(ctk.CTk):
+class MidiQwertyApp(ctk.CTk):
     def __init__(self, engine: Engine, cfg: AppConfig, cfg_path: str) -> None:
         super().__init__()
         self._engine = engine

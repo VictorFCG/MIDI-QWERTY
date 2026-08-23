@@ -10,7 +10,7 @@ if errorlevel 1 (
   echo ERRO: pyinstaller nao encontrado. Rode: pip install pyinstaller
   exit /b 1
 )
-pyinstaller midi_cc.spec --noconfirm
+pyinstaller MIDI_QWERTY.spec --noconfirm
 if errorlevel 1 (
   echo ERRO: o build falhou.
   exit /b 1

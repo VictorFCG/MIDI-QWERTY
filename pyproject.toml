@@ -21,7 +21,7 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-midi-qwerty = "midi_cc.__main__:main"
+midi-qwerty = "midi_qwerty.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pytest
 
-from midi_cc.config import (
+from midi_qwerty.config import (
     AppConfig,
     CCToggleAction,
     CCMomentaryAction,
@@ -21,8 +21,8 @@ from midi_cc.config import (
     save,
     validate,
 )
-from midi_cc.mapper import DOWN, UP, Mapper
-from midi_cc.messages import (
+from midi_qwerty.mapper import DOWN, UP, Mapper
+from midi_qwerty.messages import (
     KIND_CC,
     KIND_NOTE_OFF,
     KIND_NOTE_ON,
@@ -122,7 +122,7 @@ def test_save_atomic_and_reload(tmp_path):
 
 
 def load_file(path):
-    from midi_cc.config import load as _load
+    from midi_qwerty.config import load as _load
     return _load(path)
 
 

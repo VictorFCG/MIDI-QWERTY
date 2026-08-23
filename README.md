@@ -25,12 +25,15 @@ Teclado QWERTY ──► [hook global] ──► MIDI-QWERTY ──► loopMIDI 
 
 ## Instalação
 
-```bat
-:: dentro da pasta do projeto
+```powershell
+# dentro da pasta do projeto (PowerShell)
 py -3 -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 pip install -e .
 ```
+
+> Se o PowerShell bloquear o `Activate.ps1` (*execution policy*), rode uma vez:
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` — ou use o cmd clássico com `.venv\Scripts\activate.bat`.
 
 Isso instala as dependências (`customtkinter`, `keyboard`, `mido`, `python-rtmidi`) e cria o comando `midi-qwerty`.
 
@@ -40,6 +43,7 @@ Isso instala as dependências (`customtkinter`, `keyboard`, `mido`, `python-rtmi
 2. Crie uma porta virtual clicando em **+** (nome padrão: `loopMIDI Port`).
 3. Na DAW, habilite `loopMIDI Port` como **entrada MIDI** nos canais/trilhas desejados:
    - **Reaper**: `Options → Preferences → MIDI Devices → loopMIDI Port → Enable/Input`.
+   - **Cakewalk Sonar**: veja a seção [Integrando com a DAW](#integrando-com-a-daw) — o roteamento para plugins FX é diferente.
    - No plugin, associe o parâmetro ao CC correspondente (*learn / MIDI learn*).
 
 > O nome da porta criada no loopMIDI precisa ser o mesmo selecionado no app (seção abaixo).
@@ -53,9 +57,9 @@ O princípio é sempre o mesmo: o app envia para a porta do loopMIDI e a DAW pre
 ### Cakewalk Sonar
 
 ```
-MIDI-QWERTY → loopMIDI ──► TRILHA MIDI ──Output──► instância do plugin
-                       in: loopMIDI           (FX instalado numa
-                        Port                   trilha de áudio)
+MIDI-QWERTY ──► loopMIDI ──► TRILHA MIDI ──Output──► instância do plugin
+                 (porta       in: loopMIDI Port     (FX instalado numa
+                  virtual)                           trilha de áudio)
 ```
 
 1. Trilha de áudio normal da guitarra com o amp sim como FX (monitoramento como de costume).
@@ -81,8 +85,8 @@ Quando estiver funcionando, salve como **Track Template** (`botão direito na tr
 
 ## Uso
 
-```bat
-midi-qwerty                 :: usa .\config.toml
+```powershell
+midi-qwerty                 # usa .\config.toml
 midi-qwerty --config C:\caminho\outro-mapa.toml
 ```
 
@@ -167,7 +171,7 @@ off_value = 0              # cc_toggle
 ## Para desenvolvedores
 
 ```
-src/midi_cc/
+src/midi_qwerty/
 ├── __main__.py   entry point CLI (--config, --version)
 ├── config.py     modelo de dados + TOML (carga/salva atômica, validação)
 ├── messages.py   MsgDesc (mensagem MIDI abstrata) + formatação p/ monitor
@@ -176,6 +180,7 @@ src/midi_cc/
 ├── engine.py     thread própria: hooks, modo captura, fila de comandos/eventos
 └── app.py        GUI CustomTkinter (auto-salva + aplica ao vivo)
 tests/test_logic.py   cobertura da lógica pura (config, mapper, mensagens)
+run.py                launcher p/ PyInstaller (imports absolutos)
 ```
 
 Decisões de arquitetura:
@@ -190,19 +195,19 @@ Testes:
 python -m pytest tests/ -q
 ```
 
-Roadmap: perfis múltiplos com hot-swap; investigar a fundo o `undefined external error` do Sonar (workaround já documentado em Solução de problemas, falta a causa raiz nesta máquina); versão executável/portável (seção abaixo).
+Roadmap: perfis múltiplos com hot-swap; investigar a fundo o `undefined external error` do Sonar (workaround já documentado em Solução de problemas, falta a causa raiz nesta máquina).
 
 ---
 
 ## Versão executável/portável
 
-Gerar um `MIDI-QWERTY.exe` **portável** (não requer Python instalado) via PyInstaller. Os arquivos de build já estão versionados (`run.py`, `midi_cc.spec`, `build_exe.bat`) — o build roda no Windows (PyInstaller não faz cross-build a partir do WSL/Linux):
+Gerar um `MIDI-QWERTY.exe` **portável** (não requer Python instalado) via PyInstaller. Os arquivos de build já estão versionados (`run.py`, `MIDI_QWERTY.spec`, `build_exe.bat`) — o build roda no Windows (PyInstaller não faz cross-build a partir do WSL/Linux):
 
-```bat
-cd caminho\para\midi_cc
-.venv\Scripts\activate
+```powershell
+cd caminho\do\projeto
+.\.venv\Scripts\Activate.ps1
 pip install -e . pyinstaller
-build_exe.bat          :: gera dist\MIDI-QWERTY.exe
+.\build_exe.bat          # gera dist\MIDI-QWERTY.exe
 ```
 
 **Como funciona**

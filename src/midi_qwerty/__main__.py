@@ -1,4 +1,4 @@
-"""Entry point: `midi-qwerty` ou `python -m midi_cc`.
+"""Entry point: `midi-qwerty` ou `python -m midi_qwerty`.
 
 Fluxo:
 1. carrega (ou cria) o arquivo de configuração;
@@ -51,13 +51,13 @@ def main() -> None:
     args = parser.parse_args()
 
     # Import da GUI só aqui: erros de display/dependência ficam legíveis
-    from .app import MidiCCApp
+    from .app import MidiQwertyApp
 
     cfg = _load_or_create(args.config)
     engine = Engine(cfg)
     engine.start()
     try:
-        app = MidiCCApp(engine, cfg, args.config)
+        app = MidiQwertyApp(engine, cfg, args.config)
         app.mainloop()
     finally:
         engine.stop()
