@@ -744,7 +744,7 @@ class MidiQwertyApp(ctk.CTk):
                 text="" if hk_ok else
                 "⚠ esta tecla não existe/está indisponível aqui "
                 "(comum em notebooks) — clique em 'Capturar tecla' e escolha outra",
-                text_color="" if hk_ok else "#e67e22",
+                text_color="#e67e22",
             )
 
         pname = self._engine.port_name()

@@ -7,7 +7,7 @@ permitem aos testes inspecionar o que a aplicação criou/hookou.
 
 import sys
 import types
-from unittest.mock import MagicMock
+from unittest.mock import DEFAULT, MagicMock
 
 # --- gravadores -------------------------------------------------------------
 
@@ -24,6 +24,20 @@ def list_widget_texts(*class_names: str) -> list[str]:
 
 
 # --- widgets ----------------------------------------------------------------
+
+
+def _configure_mock():
+    """MagicMock que grava chamadas e rejeita cor vazia (como o Tk real)."""
+
+    def _guard(**kwargs):
+        for key in ("text_color", "fg_color", "hover_color", "border_color"):
+            if kwargs.get(key) == "":
+                raise ValueError(f"cor vazia inválida: {key}")
+        return DEFAULT
+
+    cm = MagicMock()
+    cm.side_effect = _guard
+    return cm
 
 
 def _make_cls(name: str):
@@ -43,6 +57,8 @@ def _make_cls(name: str):
                     m = lambda: 1080  # noqa: E731
                 elif attr in ("get", "index"):
                     m = lambda *a, **k: "1"  # noqa: E731
+                elif attr == "configure":
+                    m = _configure_mock()  # valida cores como o Tk real
                 else:
                     m = MagicMock()
                 self._mocks[attr] = m
