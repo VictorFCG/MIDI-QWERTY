@@ -218,15 +218,23 @@ class MidiCCApp(ctk.CTk):
         self._rebuild_edit_panel()
 
     def _add_mapping(self) -> None:
-        self._cfg.mappings.append(Mapping(key="", action=CCToggleAction()))
-        self._selected = len(self._cfg.mappings) - 1
+        # Reutiliza uma entrada ainda sem tecla, se houver (evita duplicar
+        # em cliques repetidos / Espaço com botão focado e limpa resquícios).
+        for i, m in enumerate(self._cfg.mappings):
+            if m.key == "":
+                self._selected = i
+                break
+        else:
+            self._cfg.mappings.append(Mapping(key="", action=CCToggleAction()))
+            self._selected = len(self._cfg.mappings) - 1
+            self._commit(rebuild_list=True)
         self._rebuild_edit_panel()
-        self._commit(rebuild_list=True)
-        self._btn_map_key.focus_set()
+        self._start_capture_map_key()  # já entra em modo captura
 
     def _remove_mapping(self, idx: int) -> None:
         if not (0 <= idx < len(self._cfg.mappings)):
             return
+        self.focus_set()  # evita Espaço/Enter reativar o botão ✕ focado
         del self._cfg.mappings[idx]
         if self._selected == idx:
             self._selected = None
@@ -388,26 +396,35 @@ class MidiCCApp(ctk.CTk):
             return
         self._capturing = ("mapping", self._selected)
         self._btn_map_key.configure(text="Aperte uma tecla… (Esc cancela)", fg_color=ACCENT)
-        self.focus_set()
+        self.focus_set()  # tira o foco de botões/entries (Espaço não dispara nada)
+        self.bind("<KeyPress>", self._on_capture_keypress)
 
     def _start_capture_toggle_key(self) -> None:
         self._capturing = ("toggle", None)
         self._btn_trig_cap.configure(text="Aperte uma tecla… (Esc cancela)", fg_color=ACCENT)
         self.focus_set()
+        self.bind("<KeyPress>", self._on_capture_keypress)
 
     def _cancel_capture(self) -> None:
         self._capturing = None
+        try:
+            self.unbind("<KeyPress>")
+        except Exception:
+            pass
         self._btn_map_key.configure(text="🎹 Capturar", fg_color="transparent")
         self._btn_trig_cap.configure(text="Capturar tecla", fg_color="transparent")
-        self.unbind("<KeyPress>")
 
     def _on_capture_keypress(self, event) -> str:
         if self._capturing is None:
             return ""
-        if event.keysym == "Escape":
+        ks = event.keysym
+        if ks in ("Shift_L", "Shift_R", "Control_L", "Control_R",
+                  "Alt_L", "Alt_R", "Win_L", "Win_R"):
+            return "break"  # ignora modificador puro; espera a tecla de verdade
+        if ks == "Escape":
             self._cancel_capture()
             return "break"
-        name = tk_keysym_to_name(event.keysym)
+        name = tk_keysym_to_name(ks)
         target, idx = self._capturing
         self._cancel_capture()
 

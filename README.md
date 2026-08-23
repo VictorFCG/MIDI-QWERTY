@@ -56,7 +56,7 @@ midi-cc --config C:\caminho\outro-mapa.toml
 ### Janela principal
 
 1. **Saída MIDI** — selecione a porta do loopMIDI no dropdown. `↻ Atualizar` reescaneia as portas (útil se você criar a porta depois de abrir o app). A troca é aplicada na hora, sem reiniciar. O indicador à direita mostra `● conectado` quando a porta está aberta.
-2. **Teclas mapeadas** — lista com resumo de cada mapeamento (`F1 → CC#20 toggle ch1`). Clique para editar; `✕` remove; `+ Adicionar tecla` cria um novo mapeamento.
+2. **Teclas mapeadas** — lista com resumo de cada mapeamento (`F1 → CC#20 toggle ch1`). Clique para editar; `✕` remove; `+ Adicionar tecla` cria um novo mapeamento e **já entra em modo de captura** — basta apertar a tecla desejada (se já existir uma entrada sem tecla, ela é reutilizada).
 3. **Painel de edição** (aparece ao selecionar uma tecla):
    - **🎹 Capturar** — clique e aperte a tecla física que quer usar (Esc cancela). Não precisa digitar nomes.
    - **Tipo de ação** e **Canal MIDI** (exibido como 1–16).
