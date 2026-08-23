@@ -142,7 +142,9 @@ class MidiQwertyApp(ctk.CTk):
         body.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=12, pady=6)
         body.grid_columnconfigure(0, weight=3, uniform="cols")
         body.grid_columnconfigure(1, weight=2, uniform="cols")
-        body.grid_rowconfigure(0, weight=1)
+        # A LINHA FLEXÍVEL é a 1 (lista/edição/controle); a 0 tem só cabeçalhos
+        body.grid_rowconfigure(1, weight=1)
+        self._body = body
 
         # Linha A do corpo: lista (esq.) + monitor (dir.) ------------------
         head = ctk.CTkFrame(body, fg_color="transparent")

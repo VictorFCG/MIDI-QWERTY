@@ -137,6 +137,10 @@ def test_invariantes_do_layout(app_factory):
     gp = ui._edit_panel.grid.call_args.kwargs
     assert gp["column"] == 0 and gp["sticky"] == "ew"
 
+    # a linha flexível do corpo é a da LISTA (row 1) — nunca a dos cabeçalhos
+    rc = {c.args[0]: c.kwargs.get("weight") for c in ui._body.grid_rowconfigure.call_args_list}
+    assert rc.get(1) == 1 and rc.get(0, 0) in (None, 0)
+
 
 def test_monitor_limitado_a_50_linhas(app_factory):
     from unittest.mock import MagicMock
