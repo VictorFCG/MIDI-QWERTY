@@ -88,8 +88,8 @@ class MidiQwertyApp(ctk.CTk):
         self._monitor_count = 0
 
         self.title("MIDI-QWERTY — teclado QWERTY → MIDI")
-        self.geometry("960x940")
-        self.minsize(860, 780)
+        self.geometry("1120x800")
+        self.minsize(960, 700)
         ctk.set_appearance_mode("dark")
 
         self._build_ui()
@@ -104,15 +104,16 @@ class MidiQwertyApp(ctk.CTk):
     # ==================================================================
 
     def _build_ui(self) -> None:
+        # Layout fixo em duas colunas na área central:
+        #   esquerda = lista de teclas (rolável) | direita = monitor
+        # Só a linha central é flexível; painel de edição e barra do
+        # gatilho têm altura estável (nada "salta" ao popular a lista).
         self.grid_columnconfigure(0, weight=1)
-        # linhas flexíveis: 1 (lista rolável) e 3 (monitor) dividem o espaço
-        # extra/faltante — a lista cresce/diminui sem empurrar o monitor p/ fora
         self.grid_rowconfigure(1, weight=1)
-        self.grid_rowconfigure(3, weight=1)
 
-        # --- Linha 0: porta MIDI -------------------------------------
+        # --- Linha 0: porta MIDI (largura total) ----------------------
         top = ctk.CTkFrame(self)
-        top.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 6))
+        top.grid(row=0, column=0, columnspan=2, sticky="ew", padx=12, pady=(12, 6))
         top.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(top, text="Saída MIDI:").grid(row=0, column=0, padx=(10, 6), pady=10)
@@ -127,14 +128,15 @@ class MidiQwertyApp(ctk.CTk):
         self._port_status = ctk.CTkLabel(top, text="● desconectado", text_color="#c0392b")
         self._port_status.grid(row=0, column=3, padx=(6, 12), pady=10)
 
-        # --- Linha 1: lista de teclas ---------------------------------
-        mid = ctk.CTkFrame(self)
-        mid.grid(row=1, column=0, sticky="nsew", padx=12, pady=6)
-        mid.grid_columnconfigure(0, weight=1)
-        mid.grid_rowconfigure(1, weight=1)
+        # --- Linha 1: centro — lista (esq.) + monitor (dir.) ----------
+        center = ctk.CTkFrame(self, fg_color="transparent")
+        center.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=12, pady=6)
+        center.grid_columnconfigure(0, weight=3, uniform="cols")
+        center.grid_columnconfigure(1, weight=2, uniform="cols")
+        center.grid_rowconfigure(1, weight=1)
 
-        head = ctk.CTkFrame(mid, fg_color="transparent")
-        head.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 2))
+        head = ctk.CTkFrame(center, fg_color="transparent")
+        head.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 2))
         head.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(head, text="Teclas mapeadas (clique para editar):").grid(row=0, column=0, sticky="w")
         ctk.CTkButton(head, text="Importar", width=90, fg_color="#5d6d7e",
@@ -144,20 +146,29 @@ class MidiQwertyApp(ctk.CTk):
         ctk.CTkButton(head, text="+ Adicionar tecla", width=140,
                       command=self._add_mapping).grid(row=0, column=3)
 
-        self._list_frame = ctk.CTkScrollableFrame(mid, height=170)
-        self._list_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=(2, 8))
+        self._list_frame = ctk.CTkScrollableFrame(center)
+        self._list_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 6), pady=2)
         self._list_frame.grid_columnconfigure(0, weight=1)
 
-        # --- Linha 2: painel de edição --------------------------------
+        right = ctk.CTkFrame(center, fg_color="transparent")
+        right.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(6, 0))
+        right.grid_columnconfigure(0, weight=1)
+        right.grid_rowconfigure(1, weight=1)
+        mon_lbl = ctk.CTkLabel(right, text="Monitor de mensagens enviadas:", anchor="w")
+        mon_lbl.grid(row=0, column=0, sticky="ew", pady=(0, 2))
+        self._monitor = ctk.CTkTextbox(right, state="disabled", wrap="none",
+                                       font=ctk.CTkFont(family="Consolas", size=13))
+        self._monitor.grid(row=1, column=0, sticky="nsew")
+
+        # --- Linha 2: painel de edição (largura total) -----------------
         self._edit_panel = ctk.CTkFrame(self)
-        self._edit_panel.grid(row=2, column=0, sticky="ew", padx=12, pady=6)
+        self._edit_panel.grid(row=2, column=0, columnspan=2, sticky="ew", padx=12, pady=6)
         self._edit_panel.grid_columnconfigure(1, weight=1)
 
-        # --- Linha 3: gatilho + modo + monitor -------------------------
+        # --- Linha 3: gatilho + modo captura (altura fixa) --------------
         bottom = ctk.CTkFrame(self)
-        bottom.grid(row=3, column=0, sticky="nsew", padx=12, pady=(6, 12))
+        bottom.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(6, 12))
         bottom.grid_columnconfigure(0, weight=1)
-        bottom.grid_rowconfigure(3, weight=1)
 
         trig = ctk.CTkFrame(bottom, fg_color="transparent")
         trig.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 2))
@@ -179,13 +190,6 @@ class MidiQwertyApp(ctk.CTk):
         self._lbl_mode = ctk.CTkLabel(ctl, text="Modo captura: INATIVO",
                                       text_color="#95a5a6", font=ctk.CTkFont(weight="bold"))
         self._lbl_mode.pack(side="left", padx=16)
-
-        mon_lbl = ctk.CTkLabel(bottom, text="Monitor de mensagens enviadas:",
-                               anchor="w")
-        mon_lbl.grid(row=2, column=0, sticky="ew", padx=8, pady=(6, 0))
-        self._monitor = ctk.CTkTextbox(bottom, height=150, state="disabled",
-                                       wrap="none", font=ctk.CTkFont(family="Consolas", size=13))
-        self._monitor.grid(row=3, column=0, sticky="nsew", padx=8, pady=(2, 8))
 
         self._rebuild_list()
         self._rebuild_edit_panel()
