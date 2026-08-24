@@ -728,7 +728,9 @@ class MidiQwertyApp(ctk.CTk):
                 f.grid_remove()
         # Preenche entries do novo tipo com valores padrão
         self._fill_default_entries(kind)
-        self._commit(rebuild_list=True)
+        # Atualiza config com o novo tipo + defaults, depois salva
+        if self._read_panel_into():
+            self._commit(rebuild_list=True)
 
     def _fill_default_entries(self, kind: str) -> None:
         self._clear_entries()
