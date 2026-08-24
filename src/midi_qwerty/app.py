@@ -46,13 +46,19 @@ BADGE_BORDER = "#6b6b6b"
 DANGER = "#7b241c"
 DANGER_HOVER = "#943126"
 
-# Fontes padronizadas
+# Fontes padronizadas (config - CTkFont criados depois do root window)
 FONT_FAMILY = "Segoe UI" if os.name == "nt" else "DejaVu Sans"
 FONT_SIZE = 12
-FONT_BOLD = ctk.CTkFont(family=FONT_FAMILY, size=FONT_SIZE, weight="bold")
-FONT_NORMAL = ctk.CTkFont(family=FONT_FAMILY, size=FONT_SIZE)
-FONT_SMALL = ctk.CTkFont(family=FONT_FAMILY, size=FONT_SIZE - 1)
-FONT_MONO = ctk.CTkFont(family="Consolas", size=13)
+_FONT_BOLD_CFG = (FONT_FAMILY, FONT_SIZE, "bold")
+_FONT_NORMAL_CFG = (FONT_FAMILY, FONT_SIZE)
+_FONT_SMALL_CFG = (FONT_FAMILY, FONT_SIZE - 1)
+_FONT_MONO_CFG = ("Consolas", 13)
+
+# Placeholders - preenchidos em _apply_fonts()
+FONT_BOLD = None
+FONT_NORMAL = None
+FONT_SMALL = None
+FONT_MONO = None
 
 TYPE_OPTIONS = [  # (rótulo exibido, kind)
     ("CC alternar (toggle)", "cc_toggle"),
@@ -332,10 +338,12 @@ class MidiQwertyApp(ctk.CTk):
         return f"{w}x{h}"
 
     def _apply_fonts(self) -> None:
-        """Aplica fontes padronizadas aos widgets CustomTkinter globais."""
-        # CustomTkinter não tem API global de fonte, mas podemos configurar
-        # o tema padrão que afeta novos widgets
-        pass  # Fontes são aplicadas via FONT_* constants nos widgets
+        """Cria objetos CTkFont após root window existir."""
+        global FONT_BOLD, FONT_NORMAL, FONT_SMALL, FONT_MONO
+        FONT_BOLD = ctk.CTkFont(*_FONT_BOLD_CFG)
+        FONT_NORMAL = ctk.CTkFont(*_FONT_NORMAL_CFG)
+        FONT_SMALL = ctk.CTkFont(*_FONT_SMALL_CFG)
+        FONT_MONO = ctk.CTkFont(*_FONT_MONO_CFG)
 
     def _build_static_edit_widgets(self) -> None:
         """Cria widgets estáticos do painel de edição (tecla, tipo, canal) uma única vez."""
