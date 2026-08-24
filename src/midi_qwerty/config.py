@@ -99,6 +99,11 @@ class AppConfig:
     midi_port: str = "loopMIDI Port"
     toggle_key: str = "scroll lock"
     mappings: list[Mapping] = field(default_factory=list)
+    # Geometria da janela (opcional)
+    window_x: int | None = None
+    window_y: int | None = None
+    window_w: int | None = None
+    window_h: int | None = None
 
     def copy(self) -> "AppConfig":
         return copy.deepcopy(self)
@@ -176,6 +181,12 @@ def dumps(cfg: AppConfig) -> str:
     lines: list[str] = ["# Arquivo gerado pelo MIDI-QWERTY — pode ser editado à mão.", ""]
     lines += ["[midi]", f"port = {_toml_str(cfg.midi_port)}", ""]
     lines += ["[capture]", f"toggle_key = {_toml_str(cfg.toggle_key)}", ""]
+    if cfg.window_x is not None and cfg.window_y is not None and cfg.window_w is not None and cfg.window_h is not None:
+        lines += ["[window]",
+                  f"x = {cfg.window_x}",
+                  f"y = {cfg.window_y}",
+                  f"w = {cfg.window_w}",
+                  f"h = {cfg.window_h}", ""]
     for m in cfg.mappings:
         lines.append("[[map]]")
         lines.append(f"key = {_toml_str(m.key)}")
@@ -204,8 +215,13 @@ def loads(text: str) -> AppConfig:
     cfg = AppConfig()
     midi = data.get("midi") or {}
     capture = data.get("capture") or {}
+    window = data.get("window") or {}
     cfg.midi_port = str(midi.get("port", cfg.midi_port))
     cfg.toggle_key = normalize_key(str(capture.get("toggle_key", cfg.toggle_key)))
+    cfg.window_x = window.get("x")
+    cfg.window_y = window.get("y")
+    cfg.window_w = window.get("w")
+    cfg.window_h = window.get("h")
 
     maps = data.get("map", [])
     if not isinstance(maps, list):

@@ -15,6 +15,7 @@ atual sem jamais modificar o arquivo importado.
 
 from __future__ import annotations
 
+import os
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
 
@@ -23,6 +24,7 @@ import customtkinter as ctk
 from . import config as cfgmod
 from .config import (
     AppConfig,
+    Action,
     CCToggleAction,
     CCMomentaryAction,
     Mapping,
@@ -43,6 +45,14 @@ KEY_BADGE_BG = "#333333"
 BADGE_BORDER = "#6b6b6b"
 DANGER = "#7b241c"
 DANGER_HOVER = "#943126"
+
+# Fontes padronizadas
+FONT_FAMILY = "Segoe UI" if os.name == "nt" else "DejaVu Sans"
+FONT_SIZE = 12
+FONT_BOLD = ctk.CTkFont(family=FONT_FAMILY, size=FONT_SIZE, weight="bold")
+FONT_NORMAL = ctk.CTkFont(family=FONT_FAMILY, size=FONT_SIZE)
+FONT_SMALL = ctk.CTkFont(family=FONT_FAMILY, size=FONT_SIZE - 1)
+FONT_MONO = ctk.CTkFont(family="Consolas", size=13)
 
 TYPE_OPTIONS = [  # (rótulo exibido, kind)
     ("CC alternar (toggle)", "cc_toggle"),
@@ -86,6 +96,49 @@ def tk_keysym_to_name(keysym: str) -> str:
     return _TK_KEYMAP.get(ks, ks.replace("_", " "))
 
 
+class CTkToolTip:
+    """Tooltip simples para CustomTkinter."""
+
+    def __init__(self, widget: ctk.CTkBaseClass, text: str, delay: int = 500) -> None:
+        self._widget = widget
+        self._text = text
+        self._delay = delay
+        self._tip: ctk.CTkToplevel | None = None
+        self._after_id: str | None = None
+        widget.bind("<Enter>", self._on_enter)
+        widget.bind("<Leave>", self._on_leave)
+        widget.bind("<ButtonPress>", self._on_leave)
+
+    def _on_enter(self, _event=None) -> None:
+        self._after_id = self._widget.after(self._delay, self._show_tip)
+
+    def _on_leave(self, _event=None) -> None:
+        if self._after_id is not None:
+            self._widget.after_cancel(self._after_id)
+            self._after_id = None
+        self._hide_tip()
+
+    def _show_tip(self) -> None:
+        if self._tip is not None:
+            return
+        x = self._widget.winfo_pointerx() + 10
+        y = self._widget.winfo_pointery() + 10
+        self._tip = ctk.CTkToplevel(self._widget)
+        self._tip.wm_overrideredirect(True)
+        self._tip.wm_geometry(f"+{x}+{y}")
+        self._tip.attributes("-topmost", True)
+        label = ctk.CTkLabel(self._tip, text=self._text, fg_color="#2b2b2b",
+                             corner_radius=6, padx=8, pady=4,
+                             text_color="#ecf0f1", font=FONT_SMALL)
+        label.pack()
+        self._tip.lift()
+
+    def _hide_tip(self) -> None:
+        if self._tip is not None:
+            self._tip.destroy()
+            self._tip = None
+
+
 class MidiQwertyApp(ctk.CTk):
     def __init__(self, engine: Engine, cfg: AppConfig, cfg_path: str) -> None:
         super().__init__()
@@ -99,13 +152,20 @@ class MidiQwertyApp(ctk.CTk):
         self._pending_delete: int | None = None
         self._pending_delete_after = None
         self._delete_buttons: dict[int, ctk.CTkButton] = {}
+        self._row_pool: list[ctk.CTkFrame] = []  # pool de linhas reutilizáveis
+        self._row_widgets: dict[int, tuple[ctk.CTkFrame, ctk.CTkButton, ctk.CTkButton]] = {}  # idx -> (row, btn, del_btn)
+        self._debounce_after: str | None = None  # timer para debounce do auto-save
 
         self.title(BASE_TITLE)
         geo = self._initial_geometry()
         self.geometry(geo)
-        gw, gh = (int(x) for x in geo.split("x"))
+        gw, gh = (int(x) for x in geo.split("+")[0].split("x"))
         self.minsize(min(960, gw), min(700, gh))
+
+        # Tema e fontes
         ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")  # tema padrão do CustomTkinter
+        self._apply_fonts()
 
         self._build_ui()
         self._refresh_ports(select=cfg.midi_port)
@@ -131,15 +191,18 @@ class MidiQwertyApp(ctk.CTk):
         top.grid(row=0, column=0, columnspan=2, sticky="ew", padx=12, pady=(12, 6))
         top.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(top, text="Saída MIDI:").grid(row=0, column=0, padx=(10, 6), pady=10)
+        ctk.CTkLabel(top, text="Saída MIDI:", font=FONT_NORMAL).grid(row=0, column=0, padx=(10, 6), pady=10)
         self._port_menu = ctk.CTkOptionMenu(
             top, values=["(sem portas)"], width=320,
             command=self._on_port_selected,
         )
         self._port_menu.set("(sem portas)")
         self._port_menu.grid(row=0, column=1, sticky="w", pady=10)
-        ctk.CTkButton(top, text="↻ Atualizar", width=90,
-                      command=self._refresh_ports_clicked).grid(row=0, column=2, padx=6, pady=10)
+        CTkToolTip(self._port_menu, "Selecionar porta de saída MIDI (loopMIDI)")
+        btn_refresh = ctk.CTkButton(top, text="↻ Atualizar", width=90,
+                      command=self._refresh_ports_clicked)
+        btn_refresh.grid(row=0, column=2, padx=6, pady=10)
+        CTkToolTip(btn_refresh, "Reescanear portas MIDI disponíveis\n(útil se criou a porta depois de abrir o app)")
         self._port_status = ctk.CTkLabel(top, text="● desconectado", text_color="#c0392b")
         self._port_status.grid(row=0, column=3, padx=(6, 12), pady=10)
 
@@ -156,13 +219,21 @@ class MidiQwertyApp(ctk.CTk):
         head = ctk.CTkFrame(body, fg_color="transparent")
         head.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 2))
         head.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(head, text="Teclas mapeadas (clique para editar):").grid(row=0, column=0, sticky="w")
-        ctk.CTkButton(head, text="Importar", width=90, fg_color=BTN_SECONDARY,
-                      hover_color=BTN_SECONDARY_HOVER, command=self._import).grid(row=0, column=1, padx=(0, 6))
-        ctk.CTkButton(head, text="Exportar", width=90, fg_color=BTN_SECONDARY,
-                      hover_color=BTN_SECONDARY_HOVER, command=self._export).grid(row=0, column=2, padx=(0, 6))
-        ctk.CTkButton(head, text="+ Adicionar tecla", width=140,
-                      command=self._add_mapping).grid(row=0, column=3)
+        ctk.CTkLabel(head, text="Teclas mapeadas (clique para editar):", font=FONT_BOLD).grid(row=0, column=0, sticky="w")
+        btn_import = ctk.CTkButton(head, text="Importar", width=90, fg_color=BTN_SECONDARY,
+                      hover_color=BTN_SECONDARY_HOVER, command=self._import)
+        btn_import.grid(row=0, column=1, padx=(0, 6))
+        CTkToolTip(btn_import, "Importar mapeamento de um arquivo TOML\n(substitui o mapeamento atual)")
+
+        btn_export = ctk.CTkButton(head, text="Exportar", width=90, fg_color=BTN_SECONDARY,
+                      hover_color=BTN_SECONDARY_HOVER, command=self._export)
+        btn_export.grid(row=0, column=2, padx=(0, 6))
+        CTkToolTip(btn_export, "Exportar mapeamento atual para um arquivo TOML\n(cria um snapshot/preset)")
+
+        btn_add = ctk.CTkButton(head, text="+ Adicionar tecla", width=140,
+                      command=self._add_mapping)
+        btn_add.grid(row=0, column=3)
+        CTkToolTip(btn_add, "Adicionar novo mapeamento de tecla\n(e entrar em modo de captura)")
 
         self._list_frame = ctk.CTkScrollableFrame(body)
         self._list_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 6), pady=2)
@@ -171,6 +242,17 @@ class MidiQwertyApp(ctk.CTk):
         self._edit_panel = ctk.CTkFrame(body)
         self._edit_panel.grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(8, 0))
         self._edit_panel.grid_columnconfigure(1, weight=1)
+
+        # --- Frames por tipo de ação (show/hide em vez de rebuild) ---
+        self._type_frames: dict[str, ctk.CTkFrame] = {}
+        for _, kind in TYPE_OPTIONS:
+            f = ctk.CTkFrame(self._edit_panel, fg_color="transparent")
+            f.grid(row=4, column=0, columnspan=5, sticky="ew", padx=12, pady=6)
+            f.grid_remove()
+            self._type_frames[kind] = f
+
+        # --- Widgets estáticos do painel (criados uma vez) ---
+        self._build_static_edit_widgets()
 
         # Trilha DIREITA (2): monitor no alto + controle da interceptação
         # embaixo — um único frame com rowspan sobre as 3 linhas da esquerda
@@ -183,22 +265,25 @@ class MidiQwertyApp(ctk.CTk):
         mhead.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(mhead, text="Monitor de mensagens enviadas:",
                      anchor="w").grid(row=0, column=0, sticky="w")
-        ctk.CTkButton(mhead, text="Limpar", width=70, height=24,
+        btn_clear = ctk.CTkButton(mhead, text="Limpar", width=70, height=24,
                       fg_color=BTN_SECONDARY, hover_color=BTN_SECONDARY_HOVER,
-                      command=self._clear_monitor).grid(row=0, column=1, padx=(6, 0))
+                      command=self._clear_monitor)
+        btn_clear.grid(row=0, column=1, padx=(6, 0))
+        CTkToolTip(btn_clear, "Limpar o monitor de mensagens MIDI")
         self._monitor = ctk.CTkTextbox(right, state="disabled", wrap="none",
-                                       font=ctk.CTkFont(family="Consolas", size=13))
+                                       font=FONT_MONO)
         self._monitor.grid(row=1, column=0, sticky="nsew")
         self._monitor.tag_config("err", foreground="#e74c3c")
 
         ctk.CTkLabel(right, text="Controle da interceptação:",
-                     font=ctk.CTkFont(size=13, weight="bold"),
+                     font=FONT_BOLD,
                      text_color="#7f8c8d").grid(row=2, column=0, sticky="w", pady=(14, 0))
         self._btn_capture = ctk.CTkButton(right, text="▶ Ativar interceptação agora",
                                           width=220, command=self._toggle_capture_clicked)
         self._btn_capture.grid(row=3, column=0, sticky="ew", pady=4)
+        CTkToolTip(self._btn_capture, "Ativar/desativar a interceptação de teclas\n(também: tecla Scroll Lock)")
         self._lbl_mode = ctk.CTkLabel(right, text="Interceptação: INATIVA",
-                                      text_color="#95a5a6", font=ctk.CTkFont(weight="bold"))
+                                      text_color="#95a5a6", font=FONT_BOLD)
         self._lbl_mode.grid(row=4, column=0, sticky="w")
 
         ctk.CTkLabel(right, text="Tecla que liga/desliga:").grid(
@@ -210,9 +295,10 @@ class MidiQwertyApp(ctk.CTk):
                                            hover_color=BTN_SECONDARY_HOVER,
                                            command=self._start_capture_toggle_key)
         self._btn_trig_cap.pack(side="left")
+        CTkToolTip(self._btn_trig_cap, "Definir qual tecla alterna a interceptação\n(padrão: Scroll Lock)")
         self._lbl_trig_val = ctk.CTkLabel(trigrow, text=(self._cfg.toggle_key or "(desativado)").upper(),
                                           text_color="#f1c40f" if self._cfg.toggle_key else "#e74c3c",
-                                          font=ctk.CTkFont(weight="bold"),
+                                          font=FONT_BOLD,
                                           fg_color=KEY_BADGE_BG, corner_radius=6,
                                           border_width=1, border_color=BADGE_BORDER,
                                           width=110, height=28)
@@ -231,6 +317,11 @@ class MidiQwertyApp(ctk.CTk):
 
     def _initial_geometry(self) -> str:
         """Janela padrão, clamped à tela (notebooks com 768px de altura)."""
+        # Tenta usar geometria salva no config
+        cfg = self._cfg
+        if cfg.window_x is not None and cfg.window_y is not None and cfg.window_w is not None and cfg.window_h is not None:
+            return f"{cfg.window_w}x{cfg.window_h}+{cfg.window_x}+{cfg.window_y}"
+
         try:
             sw = int(self.winfo_screenwidth())
             sh = int(self.winfo_screenheight())
@@ -240,42 +331,209 @@ class MidiQwertyApp(ctk.CTk):
         h = max(min(800, sh - 100), 600)
         return f"{w}x{h}"
 
-    # ==================================================================
-    # Lista de teclas mapeadas
+    def _apply_fonts(self) -> None:
+        """Aplica fontes padronizadas aos widgets CustomTkinter globais."""
+        # CustomTkinter não tem API global de fonte, mas podemos configurar
+        # o tema padrão que afeta novos widgets
+        pass  # Fontes são aplicadas via FONT_* constants nos widgets
+
+    def _build_static_edit_widgets(self) -> None:
+        """Cria widgets estáticos do painel de edição (tecla, tipo, canal) uma única vez."""
+        p = self._edit_panel
+
+        # Grid em 4 colunas pareadas + espaçador
+        for c in range(4):
+            p.grid_columnconfigure(c, weight=0)
+        p.grid_columnconfigure(4, weight=1)
+
+        # Título (linha 0)
+        self._edit_title = ctk.CTkLabel(p, text="", font=FONT_BOLD,
+                                        text_color="#7f8c8d")
+        self._edit_title.grid(row=0, column=0, columnspan=5, sticky="w", padx=12, pady=(8, 0))
+
+        # Tecla (linha 1)
+        ctk.CTkLabel(p, text="Tecla:", font=FONT_NORMAL).grid(row=1, column=0, sticky="e", padx=(12, 6), pady=6)
+        self._btn_map_key = ctk.CTkButton(p, text="Capturar tecla", width=110,
+                                          fg_color=BTN_SECONDARY,
+                                          hover_color=BTN_SECONDARY_HOVER,
+                                          command=self._start_capture_map_key)
+        self._btn_map_key.grid(row=1, column=1, sticky="w", pady=6)
+        CTkToolTip(self._btn_map_key, "Capturar tecla física para este mapeamento\n(pressione a tecla desejada; Esc cancela)")
+        self._lbl_map_key = ctk.CTkLabel(p, text="(nenhuma)",
+                                         text_color="#e74c3c",
+                                         font=FONT_BOLD,
+                                         fg_color=KEY_BADGE_BG, corner_radius=6,
+                                         border_width=1, border_color=BADGE_BORDER,
+                                         width=90, height=28)
+        self._lbl_map_key.grid(row=1, column=2, sticky="w", padx=(12, 6))
+
+        # Tipo (linha 2)
+        ctk.CTkLabel(p, text="Tipo de ação:", font=FONT_NORMAL).grid(row=2, column=0, sticky="e", padx=(12, 6), pady=6)
+        disp_to_kind = dict(TYPE_OPTIONS)
+        kind_to_disp = {v: k for k, v in TYPE_OPTIONS}
+        self._menus = {}
+        self._menus["type"] = ctk.CTkOptionMenu(
+            p, values=list(disp_to_kind.keys()), width=200,
+            command=lambda _v: self._on_type_changed(),
+        )
+        self._menus["type"].grid(row=2, column=1, sticky="w", pady=6)
+        CTkToolTip(self._menus["type"], "Tipo de mensagem MIDI a enviar:\n• CC alternar: liga/desliga a cada pressão\n• CC momentâneo: segura=ON, solta=OFF\n• Nota: Note On ao pressionar, Note Off ao soltar\n• Program Change: troca de preset")
+
+        # Canal (linha 3)
+        ctk.CTkLabel(p, text="Canal MIDI:", font=FONT_NORMAL).grid(row=3, column=0, sticky="e", padx=(12, 6), pady=6)
+        self._menus["channel"] = ctk.CTkOptionMenu(
+            p, values=[str(c) for c in range(1, 17)], width=70,
+            command=lambda _v: self._commit_from_panel(),
+        )
+        self._menus["channel"].grid(row=3, column=1, sticky="w", pady=6)
+        CTkToolTip(self._menus["channel"], "Canal MIDI (1–16)\nDeve coincidir com o canal do plugin/DAW")
+
+        # Preenche frames por tipo com os campos dinâmicos
+        self._entries: dict[str, ctk.CTkEntry] = {}
+        self._build_type_frames()
+
+        # Aviso e rodapé (linhas gerenciadas dinamicamente)
+        self._warn_lbl = ctk.CTkLabel(p, text="", text_color="#e67e22", font=FONT_SMALL)
+        self._warn_lbl.grid(row=99, column=0, columnspan=5, sticky="w", padx=12, pady=(2, 8))
+        ctk.CTkLabel(p, text="Alterações aplicam e salvam automaticamente.",
+                     text_color="#7f8c8d", font=FONT_SMALL).grid(row=100, column=0, columnspan=5,
+                                                sticky="w", padx=12, pady=(0, 10))
+
+    def _build_type_frames(self) -> None:
+        """Cria os campos numéricos dentro de cada frame por tipo."""
+        # cc_toggle
+        f = self._type_frames["cc_toggle"]
+        f.grid_columnconfigure(1, weight=0)
+        f.grid_columnconfigure(3, weight=0)
+        self._num_field_in_frame(f, 0, 0, "CC:", "cc", "Número do controlador CC (0–127)")
+        self._num_field_in_frame(f, 1, 0, "Valor ON:", "on_value", "Valor enviado ao ligar (0–127, padrão 127)")
+        self._num_field_in_frame(f, 1, 2, "Valor OFF:", "off_value", "Valor enviado ao desligar (0–127, padrão 0)")
+
+        # cc_momentary
+        f = self._type_frames["cc_momentary"]
+        f.grid_columnconfigure(1, weight=0)
+        f.grid_columnconfigure(3, weight=0)
+        self._num_field_in_frame(f, 0, 0, "CC:", "cc", "Número do controlador CC (0–127)")
+        self._num_field_in_frame(f, 1, 0, "Ao pressionar:", "press_value", "Valor enquanto a tecla está pressionada (0–127)")
+        self._num_field_in_frame(f, 1, 2, "Ao soltar:", "release_value", "Valor ao soltar a tecla (0–127, padrão 0)")
+
+        # note
+        f = self._type_frames["note"]
+        f.grid_columnconfigure(1, weight=0)
+        f.grid_columnconfigure(3, weight=0)
+        self._num_field_in_frame(f, 0, 0, "Nota:", "note", "Número da nota MIDI (0–127, ex.: 60 = C4)")
+        self._num_field_in_frame(f, 0, 2, "Velocidade:", "velocity", "Velocidade da nota (0–127, padrão 100)")
+
+        # pc
+        f = self._type_frames["pc"]
+        f.grid_columnconfigure(1, weight=0)
+        self._num_field_in_frame(f, 0, 0, "Programa:", "program", "Número do programa (0–127)")
+
+    def _num_field_in_frame(self, frame: ctk.CTkFrame, row: int, col: int, label: str, name: str, tooltip: str = "") -> None:
+        ctk.CTkLabel(frame, text=label, font=FONT_NORMAL).grid(row=row, column=col, sticky="e", padx=(12, 6), pady=6)
+        entry = ctk.CTkEntry(frame, width=70, justify="center")
+        entry.bind("<FocusOut>", lambda _e, n=name: self._commit_from_panel())
+        entry.bind("<Return>", lambda _e, n=name: self._commit_from_panel())
+        entry.grid(row=row, column=col + 1, sticky="w", pady=6)
+        if tooltip:
+            CTkToolTip(entry, tooltip)
+        self._entries[name] = entry
+
+# ==================================================================
+    # Lista de teclas mapeadas (virtualizada: recicla widgets)
     # ==================================================================
 
     def _rebuild_list(self) -> None:
         self._cancel_pending_delete()
-        for w in self._list_frame.winfo_children():
-            w.destroy()
+
+        # Esconde widgets órfãos (índices que não existem mais)
+        for idx in list(self._row_widgets.keys()):
+            if idx >= len(self._cfg.mappings):
+                row, btn, del_btn = self._row_widgets.pop(idx)
+                row.grid_remove()
+                self._row_pool.append((row, btn, del_btn))
+
         if not self._cfg.mappings:
-            ctk.CTkLabel(self._list_frame,
-                         text='Nenhuma tecla mapeada — use “+ Adicionar tecla”.',
-                         text_color="#7f8c8d").grid(row=0, column=0, pady=20)
+            # Mostra placeholder vazio
+            self._show_empty_placeholder()
             return
-        self._delete_buttons: dict[int, ctk.CTkButton] = {}
+
+        self._hide_empty_placeholder()
+        self._delete_buttons = {}
+
+        # Atualiza/cria linhas para cada mapeamento
         for i, m in enumerate(self._cfg.mappings):
-            key_disp = m.key.upper() if m.key else "(defina a tecla)"
-            summary = f"{key_disp}  →  {describe_action(m.action)}"
-            selected = (i == self._selected)
+            self._update_or_create_row(i, m)
 
-            row = ctk.CTkFrame(self._list_frame, fg_color="transparent")
-            row.grid(row=i, column=0, sticky="ew", pady=2, padx=2)
-            row.grid_columnconfigure(0, weight=1)
+        # Ajusta seleção visual
+        self._update_selection_colors()
 
-            btn = ctk.CTkButton(
-                row, text=summary, anchor="w", height=30,
+    def _show_empty_placeholder(self) -> None:
+        if not hasattr(self, "_empty_label") or self._empty_label is None:
+            self._empty_label = ctk.CTkLabel(
+                self._list_frame,
+                text='Nenhuma tecla mapeada — use "+ Adicionar tecla".',
+                text_color="#7f8c8d",
+                font=FONT_NORMAL,
+            )
+        self._empty_label.grid(row=0, column=0, pady=20)
+
+    def _hide_empty_placeholder(self) -> None:
+        if hasattr(self, "_empty_label") and self._empty_label is not None:
+            self._empty_label.grid_remove()
+
+    def _get_or_create_row(self) -> tuple[ctk.CTkFrame, ctk.CTkButton, ctk.CTkButton]:
+        if self._row_pool:
+            return self._row_pool.pop()
+        row = ctk.CTkFrame(self._list_frame, fg_color="transparent")
+        row.grid_columnconfigure(0, weight=1)
+
+        btn = ctk.CTkButton(
+            row, text="", anchor="w", height=30,
+            fg_color=ROW_BG, hover_color=ROW_HOVER,
+            command=lambda: None,  # placeholder, setado em _update_or_create_row
+        )
+        btn.grid(row=0, column=0, sticky="ew")
+
+        del_btn = ctk.CTkButton(
+            row, text="✕", width=30, height=30,
+            fg_color="#7b241c", hover_color="#943126",
+            command=lambda: None,  # placeholder
+        )
+        del_btn.grid(row=0, column=1, padx=(6, 0))
+        return row, btn, del_btn
+
+    def _update_or_create_row(self, idx: int, m: Mapping) -> None:
+        key_disp = m.key.upper() if m.key else "(defina a tecla)"
+        summary = f"{key_disp}  →  {describe_action(m.action)}"
+        selected = (idx == self._selected)
+
+        if idx in self._row_widgets:
+            row, btn, del_btn = self._row_widgets[idx]
+            row.grid(row=idx, column=0, sticky="ew", pady=2, padx=2)
+        else:
+            row, btn, del_btn = self._get_or_create_row()
+            row.grid(row=idx, column=0, sticky="ew", pady=2, padx=2)
+            self._row_widgets[idx] = (row, btn, del_btn)
+
+        btn.configure(
+            text=summary,
+            fg_color=ROW_SEL_BG if selected else ROW_BG,
+            hover_color=ROW_SEL_BG if selected else ROW_HOVER,
+            command=lambda i=idx: self._select_mapping(i),
+        )
+        del_btn.configure(
+            command=lambda i=idx: self._remove_mapping(i),
+        )
+        self._delete_buttons[idx] = del_btn
+
+    def _update_selection_colors(self) -> None:
+        for idx, (row, btn, del_btn) in self._row_widgets.items():
+            selected = (idx == self._selected)
+            btn.configure(
                 fg_color=ROW_SEL_BG if selected else ROW_BG,
                 hover_color=ROW_SEL_BG if selected else ROW_HOVER,
-                command=lambda idx=i: self._select_mapping(idx),
             )
-            btn.grid(row=0, column=0, sticky="ew")
-
-            dele = ctk.CTkButton(row, text="✕", width=30, height=30,
-                                 fg_color="#7b241c", hover_color="#943126",
-                                 command=lambda idx=i: self._remove_mapping(idx))
-            dele.grid(row=0, column=1, padx=(6, 0))
-            self._delete_buttons[i] = dele
 
     # ------------------------------------------------------------------
     # Exclusão em dois cliques (✕ vira "Certeza?"; segundo clique apaga)
@@ -297,12 +555,40 @@ class MidiQwertyApp(ctk.CTk):
 
         self._cancel_pending_delete()
         del self._cfg.mappings[idx]
+
+        # Remove o widget do índice deletado e devolve ao pool
+        if idx in self._row_widgets:
+            row, btn, del_btn = self._row_widgets.pop(idx)
+            row.grid_remove()
+            self._row_pool.append((row, btn, del_btn))
+
+        # Desloca widgets dos índices maiores para baixo
+        for i in range(idx, len(self._cfg.mappings)):
+            if i + 1 in self._row_widgets:
+                row, btn, del_btn = self._row_widgets.pop(i + 1)
+                row.grid(row=i, column=0, sticky="ew", pady=2, padx=2)
+                btn.configure(command=lambda j=i: self._select_mapping(j))
+                del_btn.configure(command=lambda j=i: self._remove_mapping(j))
+                self._row_widgets[i] = (row, btn, del_btn)
+                self._delete_buttons[i] = del_btn
+
+        # Limpa o último índice que sobrou (se houver)
+        last_idx = len(self._cfg.mappings)
+        if last_idx in self._row_widgets:
+            row, btn, del_btn = self._row_widgets.pop(last_idx)
+            row.grid_remove()
+            self._row_pool.append((row, btn, del_btn))
+
         if self._selected == idx:
             self._selected = None
             self._rebuild_edit_panel()
         elif self._selected is not None and self._selected > idx:
             self._selected -= 1
-        self._commit(rebuild_list=True)
+
+        self._update_selection_colors()
+        if not self._cfg.mappings:
+            self._show_empty_placeholder()
+        self._commit(rebuild_list=False)
 
     def _cancel_pending_delete(self) -> None:
         if self._pending_delete_after is not None:
@@ -318,12 +604,14 @@ class MidiQwertyApp(ctk.CTk):
                     btn.configure(text="✕", width=30, fg_color="#7b241c",
                                   hover_color="#943126")
                 except Exception:
-                    pass  # botão destruído por um rebuild
+                    pass
         self._pending_delete = None
 
     def _select_mapping(self, idx: int) -> None:
+        if idx == self._selected:
+            return
         self._selected = idx
-        self._rebuild_list()
+        self._update_selection_colors()
         self._rebuild_edit_panel()
 
     def _focused_widget_name(self) -> str:
@@ -355,6 +643,7 @@ class MidiQwertyApp(ctk.CTk):
         for i, m in enumerate(self._cfg.mappings):
             if m.key == "":
                 self._selected = i
+                self._update_selection_colors()
                 break
         else:
             self._cfg.mappings.append(Mapping(key="", action=CCToggleAction()))
@@ -364,107 +653,90 @@ class MidiQwertyApp(ctk.CTk):
         self._start_capture_map_key()  # já entra em modo captura
 
     # ==================================================================
-    # Painel de edição
+    # Painel de edição (show/hide por tipo)
     # ==================================================================
 
     def _rebuild_edit_panel(self) -> None:
-        """Redesenha o painel conforme a seleção atual."""
-        for w in self._edit_panel.winfo_children():
-            w.destroy()
-        self._entries: dict[str, ctk.CTkEntry] = {}
-        self._menus: dict[str, ctk.CTkOptionMenu] = {}
+        """Atualiza o painel conforme a seleção atual (não reconstrói widgets)."""
+        # Esconde todos os frames de tipo
+        for f in self._type_frames.values():
+            f.grid_remove()
 
         if self._selected is None or not (0 <= self._selected < len(self._cfg.mappings)):
-            ctk.CTkLabel(self._edit_panel, text="Selecione uma tecla na lista ou adicione uma nova.",
-                         text_color="#7f8c8d").grid(row=0, column=0, sticky="w", padx=12, pady=14)
+            self._edit_title.configure(text="Selecione uma tecla na lista ou adicione uma nova.")
+            self._lbl_map_key.configure(text="(nenhuma)", text_color="#e74c3c")
+            self._menus["type"].set("CC alternar (toggle)")
+            self._menus["channel"].set("1")
+            self._clear_entries()
             return
 
         m = self._cfg.mappings[self._selected]
-        p = self._edit_panel
-
-        # Grid em 4 colunas pareadas (rótulo|campo|rótulo|campo) + espaçador:
-        # a sobra de largura vai para o FIM da linha, nunca entre os pares.
-        for c in range(4):
-            p.grid_columnconfigure(c, weight=0)
-        p.grid_columnconfigure(4, weight=1)
-
-        title = f"Editando tecla {self._selected + 1}"
-        ctk.CTkLabel(p, text=title, font=ctk.CTkFont(size=13, weight="bold"),
-                     text_color="#7f8c8d").grid(row=0, column=0, columnspan=5,
-                                                sticky="w", padx=12, pady=(8, 0))
-
-        # Tecla ---------------------------------------------------------
-        ctk.CTkLabel(p, text="Tecla:").grid(row=1, column=0, sticky="e", padx=(12, 6), pady=6)
-        self._btn_map_key = ctk.CTkButton(p, text="Capturar tecla", width=110,
-                                          fg_color=BTN_SECONDARY,
-                                          hover_color=BTN_SECONDARY_HOVER,
-                                          command=self._start_capture_map_key)
-        self._btn_map_key.grid(row=1, column=1, sticky="w", pady=6)
-        self._lbl_map_key = ctk.CTkLabel(p, text=m.key.upper() if m.key else "(nenhuma)",
-                                         text_color="#f1c40f" if m.key else "#e74c3c",
-                                         font=ctk.CTkFont(weight="bold"),
-                                         fg_color=KEY_BADGE_BG, corner_radius=6,
-                                         border_width=1, border_color=BADGE_BORDER,
-                                         width=90, height=28)
-        self._lbl_map_key.grid(row=1, column=2, sticky="w", padx=(12, 6))
-
-        # Tipo ----------------------------------------------------------
-        ctk.CTkLabel(p, text="Tipo de ação:").grid(row=2, column=0, sticky="e", padx=(12, 6), pady=6)
-        disp_to_kind = dict(TYPE_OPTIONS)
-        kind_to_disp = {v: k for k, v in TYPE_OPTIONS}
-        self._menus["type"] = ctk.CTkOptionMenu(
-            p, values=list(disp_to_kind.keys()), width=200,
-            command=lambda _v: self._on_type_changed(),
-        )
-        self._menus["type"].set(kind_to_disp[m.action.kind])
-        self._menus["type"].grid(row=2, column=1, sticky="w", pady=6)
-
-        # Canal (exibido 1..16, armazenado 0..15) ------------------------
-        ctk.CTkLabel(p, text="Canal MIDI:").grid(row=3, column=0, sticky="e", padx=(12, 6), pady=6)
-        self._menus["channel"] = ctk.CTkOptionMenu(
-            p, values=[str(c) for c in range(1, 17)], width=70,
-            command=lambda _v: self._commit_from_panel(),
-        )
-        self._menus["channel"].set(str(m.action.channel + 1))
-        self._menus["channel"].grid(row=3, column=1, sticky="w", pady=6)
-
-        # Campos dinâmicos por tipo --------------------------------------
         a = m.action
-        r = 4
-        if a.kind in ("cc_toggle", "cc_momentary"):
-            self._num_field(r, 0, "CC:", "cc", a.cc)
-            r += 1
-            if a.kind == "cc_toggle":
-                self._num_field(r, 0, "Valor ON:", "on_value", a.on_value)
-                self._num_field(r, 2, "Valor OFF:", "off_value", a.off_value)
-                r += 1
+
+        # Atualiza widgets estáticos
+        self._edit_title.configure(text=f"Editando tecla {self._selected + 1}")
+        self._lbl_map_key.configure(text=m.key.upper() if m.key else "(nenhuma)",
+                                    text_color="#f1c40f" if m.key else "#e74c3c")
+        kind_to_disp = {v: k for k, v in TYPE_OPTIONS}
+        self._menus["type"].set(kind_to_disp[a.kind])
+        self._menus["channel"].set(str(a.channel + 1))
+
+        # Preenche entries com valores atuais
+        self._fill_entries(a)
+
+        # Mostra frame do tipo atual
+        self._type_frames[a.kind].grid()
+
+        self._set_warn("")
+
+    def _clear_entries(self) -> None:
+        for entry in self._entries.values():
+            entry.delete(0, "end")
+
+    def _fill_entries(self, action: Action) -> None:
+        self._clear_entries()
+        if action.kind in ("cc_toggle", "cc_momentary"):
+            self._entries["cc"].insert(0, str(action.cc))
+            if action.kind == "cc_toggle":
+                self._entries["on_value"].insert(0, str(action.on_value))
+                self._entries["off_value"].insert(0, str(action.off_value))
             else:
-                self._num_field(r, 0, "Ao pressionar:", "press_value", a.press_value)
-                self._num_field(r, 2, "Ao soltar:", "release_value", a.release_value)
-                r += 1
-        elif a.kind == "note":
-            self._num_field(r, 0, "Nota:", "note", a.note)
-            self._num_field(r, 2, "Velocidade:", "velocity", a.velocity)
-            r += 1
-        elif a.kind == "pc":
-            self._num_field(r, 0, "Programa:", "program", a.program)
-            r += 1
+                self._entries["press_value"].insert(0, str(action.press_value))
+                self._entries["release_value"].insert(0, str(action.release_value))
+        elif action.kind == "note":
+            self._entries["note"].insert(0, str(action.note))
+            self._entries["velocity"].insert(0, str(action.velocity))
+        elif action.kind == "pc":
+            self._entries["program"].insert(0, str(action.program))
 
-        self._warn_lbl = ctk.CTkLabel(p, text="", text_color="#e67e22")
-        self._warn_lbl.grid(row=r, column=0, columnspan=5, sticky="w", padx=12, pady=(2, 8))
-        ctk.CTkLabel(p, text="Alterações aplicam e salvam automaticamente.",
-                     text_color="#7f8c8d").grid(row=r + 1, column=0, columnspan=5,
-                                                sticky="w", padx=12, pady=(0, 10))
+    def _on_type_changed(self) -> None:
+        if self._read_panel_into():
+            # Apenas troca o frame visível, não reconstrói o painel
+            kind = dict(TYPE_OPTIONS)[self._menus["type"].get()]
+            for k, f in self._type_frames.items():
+                if k == kind:
+                    f.grid()
+                else:
+                    f.grid_remove()
+            # Preenche entries do novo tipo com valores padrão
+            self._fill_default_entries(kind)
+            self._commit(rebuild_list=True)
 
-    def _num_field(self, row: int, col: int, label: str, name: str, value: int) -> None:
-        p = self._edit_panel
-        ctk.CTkLabel(p, text=label).grid(row=row, column=col, sticky="e", padx=(12, 6), pady=6)
-        entry = ctk.CTkEntry(p, width=70, justify="center")
-        entry.insert(0, str(value))
-        entry.bind("<FocusOut>", lambda _e, n=name: self._commit_from_panel())
-        entry.bind("<Return>", lambda _e, n=name: self._commit_from_panel())
-        entry.grid(row=row, column=col + 1, sticky="w", pady=6)
-        self._entries[name] = entry
+    def _fill_default_entries(self, kind: str) -> None:
+        self._clear_entries()
+        if kind in ("cc_toggle", "cc_momentary"):
+            self._entries["cc"].insert(0, "0")
+            if kind == "cc_toggle":
+                self._entries["on_value"].insert(0, "127")
+                self._entries["off_value"].insert(0, "0")
+            else:
+                self._entries["press_value"].insert(0, "127")
+                self._entries["release_value"].insert(0, "0")
+        elif kind == "note":
+            self._entries["note"].insert(0, "60")
+            self._entries["velocity"].insert(0, "100")
+        elif kind == "pc":
+            self._entries["program"].insert(0, "0")
 
     def _read_panel_into(self) -> bool:
         """Copia o estado do painel para self.cfg. False se inválido."""
@@ -511,14 +783,16 @@ class MidiQwertyApp(ctk.CTk):
             self._set_warn("")
         return True
 
-    def _on_type_changed(self) -> None:
-        if self._read_panel_into():
-            self._rebuild_edit_panel()
-            self._commit(rebuild_list=True)
-
     def _commit_from_panel(self) -> None:
-        if self._read_panel_into():
-            self._commit(rebuild_list=True)
+        if not self._read_panel_into():
+            return
+        # Debounce: cancela timer anterior e agenda novo
+        if self._debounce_after is not None:
+            try:
+                self.after_cancel(self._debounce_after)
+            except Exception:
+                pass
+        self._debounce_after = self.after(300, lambda: self._commit(rebuild_list=True))
 
     def _set_warn(self, msg: str) -> None:
         try:
@@ -783,8 +1057,29 @@ class MidiQwertyApp(ctk.CTk):
     # ==================================================================
 
     def _on_close(self) -> None:
+        # Flush debounce timer
+        if self._debounce_after is not None:
+            try:
+                self.after_cancel(self._debounce_after)
+                self._commit(rebuild_list=True)
+            except Exception:
+                pass
+
         try:
             self._commit_from_panel()  # salva qualquer edição pendente
+        except Exception:
+            pass
+        # Salva geometria da janela
+        try:
+            geo = self.geometry()  # "WxH+X+Y"
+            if "+" in geo:
+                wh, x, y = geo.split("+")
+                w, h = wh.split("x")
+                self._cfg.window_x = int(x)
+                self._cfg.window_y = int(y)
+                self._cfg.window_w = int(w)
+                self._cfg.window_h = int(h)
+                cfgmod.save(self._cfg_path, self._cfg)
         except Exception:
             pass
         self._engine.stop()
