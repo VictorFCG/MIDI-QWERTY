@@ -413,17 +413,17 @@ class MidiQwertyApp(ctk.CTk):
         f = self._type_frames["cc_toggle"]
         f.grid_columnconfigure(1, weight=0)
         f.grid_columnconfigure(3, weight=0)
-        self._num_field_in_frame(f, 0, 0, "CC:", "cc", "Número do controlador CC (0–127)")
-        self._num_field_in_frame(f, 1, 0, "Valor ON:", "on_value", "Valor enviado ao ligar (0–127, padrão 127)")
-        self._num_field_in_frame(f, 1, 2, "Valor OFF:", "off_value", "Valor enviado ao desligar (0–127, padrão 0)")
+        self._num_field_in_frame(f, 0, 0, "CC:", "cc_toggle_cc", "Número do controlador CC (0–127)")
+        self._num_field_in_frame(f, 1, 0, "Valor ON:", "cc_toggle_on_value", "Valor enviado ao ligar (0–127, padrão 127)")
+        self._num_field_in_frame(f, 1, 2, "Valor OFF:", "cc_toggle_off_value", "Valor enviado ao desligar (0–127, padrão 0)")
 
         # cc_momentary
         f = self._type_frames["cc_momentary"]
         f.grid_columnconfigure(1, weight=0)
         f.grid_columnconfigure(3, weight=0)
-        self._num_field_in_frame(f, 0, 0, "CC:", "cc", "Número do controlador CC (0–127)")
-        self._num_field_in_frame(f, 1, 0, "Ao pressionar:", "press_value", "Valor enquanto a tecla está pressionada (0–127)")
-        self._num_field_in_frame(f, 1, 2, "Ao soltar:", "release_value", "Valor ao soltar a tecla (0–127, padrão 0)")
+        self._num_field_in_frame(f, 0, 0, "CC:", "cc_momentary_cc", "Número do controlador CC (0–127)")
+        self._num_field_in_frame(f, 1, 0, "Ao pressionar:", "cc_momentary_press_value", "Valor enquanto a tecla está pressionada (0–127)")
+        self._num_field_in_frame(f, 1, 2, "Ao soltar:", "cc_momentary_release_value", "Valor ao soltar a tecla (0–127, padrão 0)")
 
         # note
         f = self._type_frames["note"]
@@ -703,14 +703,14 @@ class MidiQwertyApp(ctk.CTk):
 
     def _fill_entries(self, action: Action) -> None:
         self._clear_entries()
-        if action.kind in ("cc_toggle", "cc_momentary"):
-            self._entries["cc"].insert(0, str(action.cc))
-            if action.kind == "cc_toggle":
-                self._entries["on_value"].insert(0, str(action.on_value))
-                self._entries["off_value"].insert(0, str(action.off_value))
-            else:
-                self._entries["press_value"].insert(0, str(action.press_value))
-                self._entries["release_value"].insert(0, str(action.release_value))
+        if action.kind == "cc_toggle":
+            self._entries["cc_toggle_cc"].insert(0, str(action.cc))
+            self._entries["cc_toggle_on_value"].insert(0, str(action.on_value))
+            self._entries["cc_toggle_off_value"].insert(0, str(action.off_value))
+        elif action.kind == "cc_momentary":
+            self._entries["cc_momentary_cc"].insert(0, str(action.cc))
+            self._entries["cc_momentary_press_value"].insert(0, str(action.press_value))
+            self._entries["cc_momentary_release_value"].insert(0, str(action.release_value))
         elif action.kind == "note":
             self._entries["note"].insert(0, str(action.note))
             self._entries["velocity"].insert(0, str(action.velocity))
@@ -732,14 +732,14 @@ class MidiQwertyApp(ctk.CTk):
 
     def _fill_default_entries(self, kind: str) -> None:
         self._clear_entries()
-        if kind in ("cc_toggle", "cc_momentary"):
-            self._entries["cc"].insert(0, "0")
-            if kind == "cc_toggle":
-                self._entries["on_value"].insert(0, "127")
-                self._entries["off_value"].insert(0, "0")
-            else:
-                self._entries["press_value"].insert(0, "127")
-                self._entries["release_value"].insert(0, "0")
+        if kind == "cc_toggle":
+            self._entries["cc_toggle_cc"].insert(0, "0")
+            self._entries["cc_toggle_on_value"].insert(0, "127")
+            self._entries["cc_toggle_off_value"].insert(0, "0")
+        elif kind == "cc_momentary":
+            self._entries["cc_momentary_cc"].insert(0, "0")
+            self._entries["cc_momentary_press_value"].insert(0, "127")
+            self._entries["cc_momentary_release_value"].insert(0, "0")
         elif kind == "note":
             self._entries["note"].insert(0, "60")
             self._entries["velocity"].insert(0, "100")
@@ -757,11 +757,11 @@ class MidiQwertyApp(ctk.CTk):
         vals = {}
         clamped: list[str] = []
 
-        # Campos por tipo - só lê os relevantes para o tipo atual
+        # Campos por tipo - só lê os relevantes para o tipo atual (com prefixo único)
         if kind == "cc_toggle":
-            fields = (("cc", (0, 127)), ("on_value", (0, 127)), ("off_value", (0, 127)))
+            fields = (("cc_toggle_cc", (0, 127)), ("cc_toggle_on_value", (0, 127)), ("cc_toggle_off_value", (0, 127)))
         elif kind == "cc_momentary":
-            fields = (("cc", (0, 127)), ("press_value", (0, 127)), ("release_value", (0, 127)))
+            fields = (("cc_momentary_cc", (0, 127)), ("cc_momentary_press_value", (0, 127)), ("cc_momentary_release_value", (0, 127)))
         elif kind == "note":
             fields = (("note", (0, 127)), ("velocity", (0, 127)))
         else:  # pc
@@ -783,11 +783,11 @@ class MidiQwertyApp(ctk.CTk):
             vals[name] = v
 
         if kind == "cc_toggle":
-            act = CCToggleAction(channel, vals.get("cc", 0),
-                                 vals.get("on_value", 127), vals.get("off_value", 0))
+            act = CCToggleAction(channel, vals.get("cc_toggle_cc", 0),
+                                 vals.get("cc_toggle_on_value", 127), vals.get("cc_toggle_off_value", 0))
         elif kind == "cc_momentary":
-            act = CCMomentaryAction(channel, vals.get("cc", 0),
-                                    vals.get("press_value", 127), vals.get("release_value", 0))
+            act = CCMomentaryAction(channel, vals.get("cc_momentary_cc", 0),
+                                    vals.get("cc_momentary_press_value", 127), vals.get("cc_momentary_release_value", 0))
         elif kind == "note":
             act = NoteAction(channel, vals.get("note", 60), vals.get("velocity", 100))
         else:
