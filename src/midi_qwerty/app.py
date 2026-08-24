@@ -245,18 +245,6 @@ class MidiQwertyApp(ctk.CTk):
     # ==================================================================
 
     def _rebuild_list(self) -> None:
-        for w in self._list_frame.winfo_children():
-            w.destroy()
-        for i, m in enumerate(self._cfg.mappings):
-            key_disp = m.key.upper() if m.key else "(defina a tecla)"
-            summary = f"{key_disp}  →  {describe_action(m.action)}"
-            selected = (i == self._selected)
-
-            row = ctk.CTkFrame(self._list_frame, fg_color="transparent")
-            row.grid(row=i, column=0, sticky="ew", pady=2, padx=2)
-            row.grid_columnconfigure(0, weight=1)
-
-    def _rebuild_list(self) -> None:
         self._cancel_pending_delete()
         for w in self._list_frame.winfo_children():
             w.destroy()
