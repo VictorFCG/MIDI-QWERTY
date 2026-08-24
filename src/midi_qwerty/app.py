@@ -718,17 +718,17 @@ class MidiQwertyApp(ctk.CTk):
             self._entries["program"].insert(0, str(action.program))
 
     def _on_type_changed(self) -> None:
-        if self._read_panel_into():
-            # Apenas troca o frame visível, não reconstrói o painel
-            kind = dict(TYPE_OPTIONS)[self._menus["type"].get()]
-            for k, f in self._type_frames.items():
-                if k == kind:
-                    f.grid()
-                else:
-                    f.grid_remove()
-            # Preenche entries do novo tipo com valores padrão
-            self._fill_default_entries(kind)
-            self._commit(rebuild_list=True)
+        # Apenas troca o frame visível, não reconstrói o painel
+        # NÃO lê valores do painel antigo - o usuário está mudando de tipo intencionalmente
+        kind = dict(TYPE_OPTIONS)[self._menus["type"].get()]
+        for k, f in self._type_frames.items():
+            if k == kind:
+                f.grid()
+            else:
+                f.grid_remove()
+        # Preenche entries do novo tipo com valores padrão
+        self._fill_default_entries(kind)
+        self._commit(rebuild_list=True)
 
     def _fill_default_entries(self, kind: str) -> None:
         self._clear_entries()
