@@ -756,9 +756,18 @@ class MidiQwertyApp(ctk.CTk):
         channel = int(self._menus["channel"].get()) - 1
         vals = {}
         clamped: list[str] = []
-        for name, lo_hi in (("cc", (0, 127)), ("on_value", (0, 127)), ("off_value", (0, 127)),
-                            ("press_value", (0, 127)), ("release_value", (0, 127)),
-                            ("note", (0, 127)), ("velocity", (0, 127)), ("program", (0, 127))):
+
+        # Campos por tipo - só lê os relevantes para o tipo atual
+        if kind == "cc_toggle":
+            fields = (("cc", (0, 127)), ("on_value", (0, 127)), ("off_value", (0, 127)))
+        elif kind == "cc_momentary":
+            fields = (("cc", (0, 127)), ("press_value", (0, 127)), ("release_value", (0, 127)))
+        elif kind == "note":
+            fields = (("note", (0, 127)), ("velocity", (0, 127)))
+        else:  # pc
+            fields = (("program", (0, 127)),)
+
+        for name, lo_hi in fields:
             ent = self._entries.get(name)
             if ent is None:
                 continue
