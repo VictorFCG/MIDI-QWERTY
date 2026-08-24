@@ -24,9 +24,12 @@ a = Analysis(
     hiddenimports=[
         "customtkinter",
         "keyboard",
+        "keyboard._winkeyboard",
+        "keyboard._nixkeyboard",
         "mido",
         "mido.backends.rtmidi",
         "rtmidi",
+        "python_rtmidi",
     ],
     hookspath=[],
     hooksconfig={},
