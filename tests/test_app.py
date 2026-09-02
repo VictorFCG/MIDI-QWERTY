@@ -352,7 +352,7 @@ def test_clamp_avisa_o_usuario(app_factory):
     ui._rebuild_edit_panel()
     ui._menus["type"]._mocks["get"] = lambda: "CC alternar (toggle)"
     ui._menus["channel"]._mocks["get"] = lambda: "1"
-    ui._entries["cc"]._mocks["get"] = lambda: "999"
+    ui._entries["cc_toggle_cc"]._mocks["get"] = lambda: "999"
     assert ui._read_panel_into() is True            # valor válido após clamp
     assert ui._cfg.mappings[0].action.cc == 127
     warn = ui._warn_lbl._mocks["configure"].call_args.kwargs["text"]

@@ -269,13 +269,14 @@ class Engine:
             mapping = self._cfg.find_by_key(key)
             if mapping is None:
                 return
-            for d in self._mapper.handle(key, event_type, mapping.action):
-                line = format_msg(key, d)
-                try:
-                    self._port.send(d)
-                except Exception as e:
-                    line += f"   ⚠ sem porta ({e})"
-                self.push_event(line)
+            msgs = list(self._mapper.handle(key, event_type, mapping.action))
+        for d in msgs:
+            line = format_msg(key, d)
+            try:
+                self._port.send(d)
+            except Exception as e:
+                line += f"   ⚠ sem porta ({e})"
+            self.push_event(line)
 
     def _send_locked(self, msgs) -> None:
         for d in msgs:

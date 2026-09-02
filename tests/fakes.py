@@ -26,25 +26,19 @@ def list_widget_texts(*class_names: str) -> list[str]:
 # --- widgets ----------------------------------------------------------------
 
 
-def _configure_mock():
-    """MagicMock que grava chamadas e rejeita cor vazia (como o Tk real)."""
-
-    def _guard(**kwargs):
-        for key in ("text_color", "fg_color", "hover_color", "border_color"):
-            if kwargs.get(key) == "":
-                raise ValueError(f"cor vazia inválida: {key}")
-        return DEFAULT
-
-    cm = MagicMock()
-    cm.side_effect = _guard
-    return cm
-
-
 def _make_cls(name: str):
     class W:
         def __init__(self, *a, **k):
             object.__setattr__(self, "_mocks", {})
+            self._mocks["configure"] = MagicMock(side_effect=self._do_configure)
             WIDGET_KWARGS.setdefault(name, []).append(k)
+
+        def _do_configure(self, **kwargs):
+            for key in ("text_color", "fg_color", "hover_color", "border_color"):
+                if kwargs.get(key) == "":
+                    raise ValueError(f"cor vazia inválida: {key}")
+            if "text" in kwargs:
+                WIDGET_KWARGS.setdefault(type(self).__name__, []).append(kwargs)
 
         def __getattr__(self, attr):
             m = self._mocks.get(attr)
@@ -58,7 +52,7 @@ def _make_cls(name: str):
                 elif attr in ("get", "index"):
                     m = lambda *a, **k: "1"  # noqa: E731
                 elif attr == "configure":
-                    m = _configure_mock()  # valida cores como o Tk real
+                    m = self.configure  # noqa: E731
                 else:
                     m = MagicMock()
                 self._mocks[attr] = m
@@ -103,8 +97,9 @@ def install() -> None:
             pass
 
     ctk.CTk = CTk
-    ctk.CTkFont = lambda **k: "font"
+    ctk.CTkFont = lambda *a, **k: "font"
     ctk.set_appearance_mode = lambda *a: None
+    ctk.set_default_color_theme = lambda *a: None
     sys.modules["customtkinter"] = ctk
 
     kb = types.ModuleType("keyboard")

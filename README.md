@@ -138,6 +138,12 @@ port = "loopMIDI Port"     # nome exato da porta no loopMIDI
 [capture]
 toggle_key = "scroll lock" # "" desativa a gatilho global (só pela GUI)
 
+[window]
+x = 78                     # posição X (None = centralizado)
+y = 78                     # posição Y
+w = 1120                   # largura
+h = 800                    # altura
+
 [[map]]                    # repita um bloco por tecla
 key = "f1"                 # nome minúsculo da tecla
 type = "cc_toggle"         # cc_toggle | cc_momentary | note | pc
@@ -178,8 +184,11 @@ src/midi_qwerty/
 ├── mapper.py     estado por tecla (held/toggle) + anti auto-repeat
 ├── midi.py       porta MIDI-out (mido/rtmidi) e conversão MsgDesc→mido
 ├── engine.py     thread própria: hooks, interceptação, fila de comandos/eventos
+├── panels.py     lógica do painel de edição (campos dinâmicos por tipo)
 └── app.py        GUI CustomTkinter (auto-salva + aplica ao vivo)
 tests/test_logic.py   cobertura da lógica pura (config, mapper, mensagens)
+tests/test_app.py     regressão da GUI (stubs headless)
+tests/test_engine.py  testes da engine (hooks, interceptação, fila)
 run.py                launcher p/ PyInstaller (imports absolutos)
 ```
 
@@ -194,8 +203,6 @@ Testes:
 ```bash
 python -m pytest tests/ -q
 ```
-
-Roadmap: perfis múltiplos com hot-swap; investigar a fundo o `undefined external error` do Sonar (workaround já documentado em Solução de problemas, falta a causa raiz nesta máquina).
 
 ---
 
